@@ -11,7 +11,7 @@ from CryptoPayAPI.types.asset import USDT
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 2
+TOPIC_ID = 3
 
 bot = Bot(token=TOKEN)
 crypto = AioCryptoPay(token=CRYPTO_PAY_TOKEN, is_test_net=False)
