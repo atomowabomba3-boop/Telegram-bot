@@ -4,9 +4,10 @@ import sqlite3
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
-CHANNEL_ID = "@undergroundzon" # Wstaw tutaj nazwę lub ID swojego kanału, np. "@mojkanal"
+CHANNEL_ID = "@undergroundzon"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -42,6 +43,16 @@ def get_or_create_user(user_id: int, ref_id: int = None):
     conn.close()
     return tickets
 
+# Funkcja ustawiająca menu komend, które podświetlają się po wpisaniu "/"
+async def set_bot_commands(bot: Bot):
+    commands = [
+        BotCommand(command="start", description="Start the bot and get info"),
+        BotCommand(command="tickets", description="Check your current ticket balance"),
+        BotCommand(command="ref", description="Get your personal referral link"),
+        BotCommand(command="help", description="Show available commands"),
+    ]
+    await bot.set_my_commands(commands)
+
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     args = message.text.split(maxsplit=1)
@@ -58,10 +69,27 @@ async def cmd_start(message: types.Message):
             
     tickets = get_or_create_user(user_id, ref_id)
     
-    if ref_id:
-        await message.answer(f"Welcome! You were invited. Your starting ticket balance: {tickets}")
-    else:
-        await message.answer(f"Welcome to the ticket and e-book system! Your current ticket balance: {tickets}")
+    welcome_text = (
+        "👋 Welcome to the Ticket & E-book System!\n\n"
+        "Here is what you can do:\n"
+        "• Check your current ticket balance\n"
+        "• Get your referral link to invite friends\n"
+        "• Buy exclusive e-books on our sub-channel\n\n"
+        f"Your current ticket balance: {tickets}\n\n"
+        "Use /help to see all available commands."
+    )
+    await message.answer(welcome_text)
+
+@dp.message(Command("help"))
+async def cmd_help(message: types.Message):
+    help_text = (
+        "🤖 **Available Commands:**\n\n"
+        "📊 /tickets - Check your current ticket balance\n"
+        "🔗 /ref - Get your personal referral link\n"
+        "❓ /help - Show this help message\n\n"
+        "💡 *Tip: If you blocked the bot, make sure to unblock it so it can send you updates and tickets!*"
+    )
+    await message.answer(help_text, parse_mode="Markdown")
 
 @dp.message(Command("tickets"))
 async def cmd_tickets(message: types.Message):
@@ -74,7 +102,7 @@ async def cmd_ref(message: types.Message):
     user_id = message.from_user.id
     bot_info = await bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-    await message.answer(f"Here is your personal invite link:\n{ref_link}\n\nShare it with friends to get more tickets!")
+    await message.answer(f"🔗 **Your personal invite link:**\n{ref_link}\n\nShare it with friends to get more tickets!", parse_mode="Markdown")
 
 @dp.message(Command("reset_contest"))
 async def cmd_reset_contest(message: types.Message):
@@ -88,6 +116,8 @@ async def cmd_reset_contest(message: types.Message):
 
 async def main():
     logging.basicConfig(level=logging.INFO)
+    # Rejestrujemy komendy w Telegramie podczas uruchamiania bota
+    await set_bot_commands(bot)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
