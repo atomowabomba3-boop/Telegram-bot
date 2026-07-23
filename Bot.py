@@ -240,7 +240,6 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     if not participants:
         cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
         cursor.execute("DELETE FROM giveaway_participants")
-        cursor.execute("UPDATE users SET tickets = 1")
         conn.commit()
         conn.close()
         try:
@@ -272,8 +271,11 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
 
     cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
     cursor.execute("UPDATE giveaway_pool SET amount = 0.0 WHERE id = 1")
+    
+    # Resetujemy tickety i usuwamy z uczestników TYLKO tych, którzy wzięli udział w tym losowaniu
+    for uid in participants:
+        cursor.execute("UPDATE users SET tickets = 1 WHERE user_id = ?", (uid,))
     cursor.execute("DELETE FROM giveaway_participants")
-    cursor.execute("UPDATE users SET tickets = 1")
     
     conn.commit()
     conn.close()
@@ -294,7 +296,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         f"💰 **Total Distributed Pool:** `${pool_amount:.2f} USD`\n"
         f"🏆 **Prize for each of the {len(winners)} winners:** **`${prize_per_winner:.2f} USD`**\n\n"
         f"🔥 **Winners:**\n{winners_text}\n\n"
-        "Congratulations! Giveaway finished, extra tickets reset, base tickets kept."
+        "Congratulations! Participants' tickets reset to base 1, non-participants kept theirs."
     )
 
     try:
