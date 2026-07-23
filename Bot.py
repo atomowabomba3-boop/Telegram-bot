@@ -7,7 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, ChatMemberUpdated
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
-CHANNEL_ID = "@undergroundzon"
+CHANNEL_ID = "@undrgroundzone"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
