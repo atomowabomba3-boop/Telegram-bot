@@ -1,4 +1,3 @@
-print("URUCHAMIAM BOTA...")
 import asyncio
 import logging
 import sqlite3
@@ -747,10 +746,11 @@ async def member_join(event: ChatMemberUpdated):
                 pass
 
 async def main():
+    print("URUCHAMIAM BOTA...")
     logging.basicConfig(level=logging.INFO)
     await set_bot_commands(bot)
     asyncio.create_task(background_ticker(bot))
     await dp.start_polling(bot)
 
-if __name__ == "main":
+if __name__ == "__main__":
     asyncio.run(main())
