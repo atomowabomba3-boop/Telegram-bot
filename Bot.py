@@ -1,3 +1,4 @@
+print("URUCHAMIAM BOTA...")
 import asyncio
 import logging
 import sqlite3
