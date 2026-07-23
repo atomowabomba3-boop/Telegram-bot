@@ -1,20 +1,41 @@
 import asyncio
 import logging
 import sqlite3
+import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton
-from CryptoPayAPI.AioCryptoPay import AioCryptoPay
-from CryptoPayAPI.types.asset import USDT
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 3
+TOPIC_ID = 2
 
 bot = Bot(token=TOKEN)
-crypto = AioCryptoPay(token=CRYPTO_PAY_TOKEN, is_test_net=False)
+dp = Dispatcher(storage=MemoryStorage())
+
+async def create_crypto_invoice(amount: float, asset: str, description: str, payload: str):
+    """Directly communicates with CryptoBot HTTP API to bypass package version conflicts."""
+    url = "https://pay.crypt.bot/api/createInvoice"
+    headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
+    data = {
+        "asset": asset,
+        "amount": str(amount),
+        "description": description,
+        "payload": payload,
+        "allow_comments": False,
+        "allow_anonymous": False
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=data) as response:
+            result = await response.json()
+            if result.get("ok"):
+                return result["result"]["bot_invoice_url"]
+            else:
+                logging.error(f"CryptoBot API Error: {result}")
+                raise Exception("Failed to create invoice via CryptoBot")
 
 def init_db():
     conn = sqlite3.connect("bot_database.db")
@@ -87,15 +108,15 @@ async def cmd_start(message: types.Message):
         if payload in tiers:
             tier_data = tiers[payload]
             try:
-                invoice = await crypto.create_invoice(
+                invoice_url = await create_crypto_invoice(
                     amount=tier_data["price"],
-                    asset=USDT,
+                    asset="USDT",
                     description=f"Purchase: {tier_data['name']} + {tier_data['tickets']} tickets in Undrgroundzone",
                     payload=payload
                 )
                 
                 pay_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="💳 PAY WITH CRYPTO", url=invoice.bot_invoice_url)]
+                    [InlineKeyboardButton(text="💳 PAY WITH CRYPTO", url=invoice_url)]
                 ])
                 
                 await message.answer(
@@ -274,7 +295,6 @@ async def member_join(event: ChatMemberUpdated):
 async def main():
     logging.basicConfig(level=logging.INFO)
     await set_bot_commands(bot)
-    await crypto.close()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
