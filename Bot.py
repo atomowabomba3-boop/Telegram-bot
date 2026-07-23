@@ -489,8 +489,7 @@ async def process_simulation(message: types.Message, tier_key: str):
     conn.commit()
     conn.close()
     
-    new_raw_pool = add_to_giveaway_pool(tier_data["price"])
-    new_pool = get_display_pool(new_raw_pool)
+    add_to_giveaway_pool(tier_data["price"])
     await update_all_active_giveaways(bot)
     
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
@@ -499,12 +498,12 @@ async def process_simulation(message: types.Message, tier_key: str):
     total_tickets = cursor.fetchone()[0]
     conn.close()
     
+    # Usunięto informację o puli nagród z komunikatu symulacji
     await message.answer(
         f"🧪 **[PURCHASE SIMULATION]**\n\n"
         f"✅ Successfully simulated payment for: **{tier_data['name']}**\n"
         f"🎟 Boost tickets added: **+{tier_data['tickets']}**\n"
-        f"📊 Your total ticket balance: **{total_tickets}**\n"
-        f"💰 New display giveaway pool: **${new_pool:.2f} USD**",
+        f"📊 Your total ticket balance: **{total_tickets}**",
         parse_mode="Markdown"
     )
     
@@ -534,6 +533,37 @@ async def cmd_tier2(message: types.Message):
 @dp.message(Command("tier3"))
 async def cmd_tier3(message: types.Message):
     await process_simulation(message, "tier3")
+
+@dp.message(Command("sim_bots"))
+async def cmd_sim_bots(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Unauthorized.")
+        return
+        
+    args = message.text.split()
+    if len(args) < 2 or not args[1].isdigit():
+        await message.answer("⚠️ Usage: `/sim_bots <number>` (e.g., `/sim_bots 4`)", parse_mode="Markdown")
+        return
+        
+    count = int(args[1])
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
+    cursor = conn.cursor()
+    
+    added = 0
+    for _ in range(count):
+        fake_bot_id = random.randint(900000000, 999999999)
+        cursor.execute("INSERT OR IGNORE INTO users (user_id, tickets) VALUES (?, 1)", (fake_bot_id,))
+        try:
+            cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (fake_bot_id,))
+            added += 1
+        except sqlite3.IntegrityError:
+            pass
+            
+    conn.commit()
+    conn.close()
+    
+    await update_all_active_giveaways(bot)
+    await message.answer(f"🤖 Successfully added {added} test bots to the active giveaway!")
 
 @dp.message(Command("startgiveaway"))
 async def cmd_start_giveaway(message: types.Message):
@@ -762,7 +792,6 @@ async def main():
     print("URUCHAMIAM BOTA...")
     logging.basicConfig(level=logging.INFO)
     
-    # Uruchomienie lokalnego serwera HTTP dla Railway, żeby kontener się nie ubijał
     await start_web_server()
     
     await set_bot_commands(bot)
