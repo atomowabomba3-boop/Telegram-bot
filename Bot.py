@@ -128,8 +128,6 @@ def init_db():
 init_db()
 
 def get_display_pool(raw_amount: float) -> float:
-    # Jeśli pula w bazie jest mniejsza lub równa 30.0, wyświetlamy równe 30.0. 
-    # Dopiero gdy przekroczy 30.0, wyświetlamy faktyczną wyższą kwotę.
     return raw_amount if raw_amount > 30.0 else 30.0
 
 def get_or_create_user(user_id: int, ref_id: int = None):
@@ -620,7 +618,20 @@ async def process_join_giveaway(callback_query: CallbackQuery):
     
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO giveaway_participants (user_id) VALUES (?)", (user_id,))
+    
+    cursor.execute("SELECT 1 FROM giveaway_participants WHERE user_id = ?", (user_id,))
+    already_joined = cursor.fetchone()
+    
+    if already_joined:
+        conn.close()
+        await bot.answer_callback_query(
+            callback_query.id, 
+            text="⚠️ You have already joined this giveaway!", 
+            show_alert=True
+        )
+        return
+
+    cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
