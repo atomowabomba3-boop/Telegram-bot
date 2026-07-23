@@ -17,13 +17,15 @@ async def cmd_start(message: types.Message):
     
     if len(args) > 1:
         ref_id = args[1]
-        await message.answer(f"Witaj! Zostałeś zaproszony przez użytkownika o ID: {ref_id}. Otrzymujesz swój los startowy!")
+        await message.answer(f"Welcome! You were invited by user ID: {ref_id}. You received your starting ticket!")
     else:
-        await message.answer("Witaj w systemie losów i e-booków! Użyj /losy, aby sprawdzić swój bilans.")
+        await message.answer("Welcome to the ticket and e-book system! Use /tickets to check your balance.")
 
 @dp.message(Command("losy"))
 async def cmd_losy(message: types.Message):
-    await message.answer("Twój aktualny bilans:\n- Losy stałe: 1\n- Losy z zaproszeń: 0\n- Losy z zakupów: 0")
+    # Tutaj w przyszłości podepnisz zmienną z całkowitą liczbą losów użytkownika
+    total_tickets = 1  
+    await message.answer(f"Your current ticket balance:\n- Total tickets: {total_tickets}")
 
 async def main():
     logging.basicConfig(level=logging.INFO)
