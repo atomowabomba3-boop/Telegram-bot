@@ -16,7 +16,6 @@ TOPIC_ID = 2
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# Definicje produktów (e-booki / pakiety)
 TIERS = {
     "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50, "file": "ebook_1.pdf"},
     "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200, "file": "ebook_2.pdf"},
@@ -93,11 +92,11 @@ def get_or_create_user(user_id: int, ref_id: int = None):
 async def set_bot_commands(bot: Bot):
     commands = [
         BotCommand(command="start", description="Start the bot"),
+        BotCommand(command="store", description="Show available e-books"),
         BotCommand(command="tickets", description="Check your tickets"),
         BotCommand(command="ref", description="Get your invite link"),
         BotCommand(command="ebooks", description="Your purchased e-books"),
-        BotCommand(command="store", description="Show available e-books"),
-        BotCommand(command="post_ebooks", description="Post store to group topic"),
+        BotCommand(command="post_ebooks", description="Post store to group"),
         BotCommand(command="sim_pay", description="Simulate a successful purchase"),
         BotCommand(command="help", description="Show help"),
     ]
@@ -112,7 +111,6 @@ async def cmd_start(message: types.Message):
         payload = args[1]
         parts = payload.split("_")
         
-        # Obsługa wybranej waluty (np. buy_tier1_BTC)
         if len(parts) == 3:
             tier_key = f"{parts[0]}_{parts[1]}"
             asset = parts[2].upper()
@@ -135,7 +133,7 @@ async def cmd_start(message: types.Message):
                         f"🛒 **Generating payment for {tier_data['name']}**\n\n"
                         f"🎟 **Included:** {tier_data['tickets']} tickets\n"
                         f"💰 **Amount:** ${tier_data['price']} USD equivalent in {asset}\n\n"
-                        "Click the button below to complete your payment:",
+                        "Click the button below to complete your payment via CryptoBot:",
                         reply_markup=pay_keyboard,
                         parse_mode="Markdown"
                     )
@@ -144,14 +142,12 @@ async def cmd_start(message: types.Message):
                     logging.error(f"CryptoPay error: {e}")
                 return
         
-        # Wybór waluty dla danego produktu
         if payload in TIERS:
-            bot_username = (await bot.get_me()).username
             select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    InlineKeyboardButton(text="USDT", url=f"https://t.me/{bot_username}?start={payload}_USDT"),
-                    InlineKeyboardButton(text="BTC", url=f"https://t.me/{bot_username}?start={payload}_BTC"),
-                    InlineKeyboardButton(text="ETH", url=f"https://t.me/{bot_username}?start={payload}_ETH")
+                    InlineKeyboardButton(text="USDT", callback_data=f"pay_{payload}_USDT"),
+                    InlineKeyboardButton(text="BTC", callback_data=f"pay_{payload}_BTC"),
+                    InlineKeyboardButton(text="ETH", callback_data=f"pay_{payload}_ETH")
                 ]
             ])
             await message.answer(
@@ -166,21 +162,71 @@ async def cmd_start(message: types.Message):
         "👋 Welcome to the Undrgroundzone System!\n\n"
         "Here you can check your tickets, invite link, and buy e-books.\n\n"
         f"Your ticket balance: {tickets}\n\n"
-        "Use /store to see available e-books or /help for commands."
+        "Use /store to see available e-books."
     )
     await message.answer(welcome_text)
 
+@dp.callback_query(lambda c: c.data and c.data.startswith("pay_"))
+async def process_currency_choice(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    tier_key = f"{parts[1]}_{parts[2]}"
+    asset = parts[3].upper()
+    
+    if tier_key in TIERS:
+        tier_data = TIERS[tier_key]
+        try:
+            invoice_url = await create_crypto_invoice(
+                amount=tier_data["price"],
+                asset=asset,
+                description=f"Purchase: {tier_data['name']} + {tier_data['tickets']} tickets",
+                payload=f"{tier_key}_{asset}"
+            )
+            
+            pay_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"💳 PAY {tier_data['price']} {asset}", url=invoice_url)]
+            ])
+            
+            await callback.message.edit_text(
+                f"🛒 **Invoice ready for {tier_data['name']}**\n\n"
+                f"💰 **Amount:** {tier_data['price']} {asset}\n\n"
+                "Click the button below to pay:",
+                reply_markup=pay_keyboard,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            await callback.message.answer("⚠️ Error generating invoice. Try again later.")
+            logging.error(f"CryptoPay error: {e}")
+            
+    await callback.answer()
+
 @dp.message(Command("store"))
 async def cmd_store(message: types.Message):
-    bot_username = (await bot.get_me()).username
     store_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🟢 Ebook Tier 1 ($2)", url=f"https://t.me/{bot_username}?start=buy_tier1")],
-        [InlineKeyboardButton(text="🔵 Ebook Tier 2 ($5)", url=f"https://t.me/{bot_username}?start=buy_tier2")],
-        [InlineKeyboardButton(text="🟣 Ebook Tier 3 ($10)", url=f"https://t.me/{bot_username}?start=buy_tier3")],
-        [InlineKeyboardButton(text="📖 Single Ebook #1 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook1")],
-        [InlineKeyboardButton(text="📖 Single Ebook #2 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook2")]
+        [InlineKeyboardButton(text="🟢 Ebook Tier 1 ($2)", callback_data="sel_buy_tier1")],
+        [InlineKeyboardButton(text="🔵 Ebook Tier 2 ($5)", callback_data="sel_buy_tier2")],
+        [InlineKeyboardButton(text="🟣 Ebook Tier 3 ($10)", callback_data="sel_buy_tier3")],
+        [InlineKeyboardButton(text="📖 Single Ebook #1 ($1.5)", callback_data="sel_buy_ebook1")],
+        [InlineKeyboardButton(text="📖 Single Ebook #2 ($1.5)", callback_data="sel_buy_ebook2")]
     ])
     await message.answer("📚 **Available E-books Store:**\nSelect a product to purchase:", reply_markup=store_keyboard, parse_mode="Markdown")
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("sel_"))
+async def process_store_selection(callback: types.CallbackQuery):
+    payload = callback.data.replace("sel_", "")
+    if payload in TIERS:
+        select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="USDT", callback_data=f"pay_{payload}_USDT"),
+                InlineKeyboardButton(text="BTC", callback_data=f"pay_{payload}_BTC"),
+                InlineKeyboardButton(text="ETH", callback_data=f"pay_{payload}_ETH")
+            ]
+        ])
+        await callback.message.edit_text(
+            f"💱 **Choose cryptocurrency for {TIERS[payload]['name']} (${TIERS[payload]['price']}):**",
+            reply_markup=select_keyboard,
+            parse_mode="Markdown"
+        )
+    await callback.answer()
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
@@ -190,7 +236,7 @@ async def cmd_help(message: types.Message):
         "📊 /tickets - Check your ticket balance\n"
         "🔗 /ref - Get your invite link\n"
         "📖 /ebooks - View your purchased e-books\n"
-        "🛒 /post_ebooks - Post store to group topic\n"
+        "🛒 /post_ebooks - Post store to group\n"
         "🧪 /sim_pay - Simulate a test purchase\n"
         "❓ /help - Show help"
     )
@@ -219,7 +265,7 @@ async def cmd_ref(message: types.Message):
         
         await message.answer(
             f"🔗 **Your personal invite link:**\n{link}\n\n"
-            "Share this link with your friends! When someone joins using it, you will automatically receive a ticket.",
+            "Share this link with your friends to earn tickets!",
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -244,7 +290,7 @@ async def cmd_ebooks(message: types.Message):
 @dp.message(Command("sim_pay"))
 async def cmd_sim_pay(message: types.Message):
     user_id = message.from_user.id
-    tier_key = "buy_tier3"  # Domyślny testowy produkt
+    tier_key = "buy_tier3"
     tier_data = TIERS[tier_key]
     
     conn = sqlite3.connect("bot_database.db")
@@ -265,7 +311,6 @@ async def cmd_sim_pay(message: types.Message):
         parse_mode="Markdown"
     )
     
-    # Wysyłanie pliku z dysku
     file_to_send = tier_data["file"]
     if os.path.exists(file_to_send):
         await message.answer_document(
@@ -277,14 +322,12 @@ async def cmd_sim_pay(message: types.Message):
 
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
-    bot_username = (await bot.get_me()).username
-    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 1 ($2)", url=f"https://t.me/{bot_username}?start=buy_tier1")],
-        [InlineKeyboardButton(text="🛒 BUY TIER 2 ($5)", url=f"https://t.me/{bot_username}?start=buy_tier2")],
-        [InlineKeyboardButton(text="🛒 BUY TIER 3 ($10)", url=f"https://t.me/{bot_username}?start=buy_tier3")],
-        [InlineKeyboardButton(text="🛒 BUY SINGLE EBOOK #1 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook1")],
-        [InlineKeyboardButton(text="🛒 BUY SINGLE EBOOK #2 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook2")]
+        [InlineKeyboardButton(text="🟢 Ebook Tier 1 ($2)", callback_data="sel_buy_tier1")],
+        [InlineKeyboardButton(text="🔵 Ebook Tier 2 ($5)", callback_data="sel_buy_tier2")],
+        [InlineKeyboardButton(text="🟣 Ebook Tier 3 ($10)", callback_data="sel_buy_tier3")],
+        [InlineKeyboardButton(text="📖 Single Ebook #1 ($1.5)", callback_data="sel_buy_ebook1")],
+        [InlineKeyboardButton(text="📖 Single Ebook #2 ($1.5)", callback_data="sel_buy_ebook2")]
     ])
     
     try:
