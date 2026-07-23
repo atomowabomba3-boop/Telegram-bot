@@ -13,6 +13,9 @@ CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
 TOPIC_ID = 3
 
+# TUTAJ WPISZ SWOJE TELEGRAM USER_ID JAKO ADMINISTRATORA
+ADMIN_IDS = [8998575936] # Zamień na swoje prawdziwe ID numeryczne
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -116,11 +119,6 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="tickets", description="Check your tickets"),
         BotCommand(command="ref", description="Get your invite link"),
         BotCommand(command="ebooks", description="Your purchased e-books"),
-        BotCommand(command="post_ebooks", description="Post store to group topic"),
-        BotCommand(command="sim_pay", description="Simulate purchase (e.g. /sim_pay tier1)"),
-        BotCommand(command="tier1", description="Simulate purchase of Tier 1"),
-        BotCommand(command="tier2", description="Simulate purchase of Tier 2"),
-        BotCommand(command="tier3", description="Simulate purchase of Tier 3"),
         BotCommand(command="help", description="Show help"),
     ]
     await bot.set_my_commands(commands)
@@ -203,11 +201,8 @@ async def cmd_help(message: types.Message):
     help_text = (
         "🤖 **Available Commands:**\n\n"
         "📊 /tickets - Check your ticket balance\n"
-        "🔗 /ref - Get your invite link\n"
-        "📚 /ebooks - View your purchased e-books\n"
-        "🛒 /post_ebooks - Post store to group topic\n"
-        "🧪 /sim_pay <tier1/tier2/tier3> - Simulate a test purchase\n"
-        "⚡ /tier1, /tier2, /tier3 - Quick simulate test purchase for specific tier\n"
+        "🔗 /ref - Get your permanent invite link\n"
+        "📚 /ebooks - View and download your purchased e-books\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
@@ -224,8 +219,12 @@ async def cmd_ref(message: types.Message):
     get_or_create_user(user_id)
     
     try:
-        invite = await bot.create_chat_invite_link(chat_id=CHAT_ID, creates_join_request=False)
-        link = invite.invite_link
+        chat = await bot.get_chat(CHAT_ID)
+        link = chat.invite_link
+        
+        if not link:
+            new_invite = await bot.export_chat_invite_link(chat_id=CHAT_ID)
+            link = new_invite
         
         conn = sqlite3.connect("bot_database.db")
         cursor = conn.cursor()
@@ -234,12 +233,12 @@ async def cmd_ref(message: types.Message):
         conn.close()
         
         await message.answer(
-            f"🔗 **Your personal invite link:**\n{link}\n\n"
+            f"🔗 **Your permanent invite link:**\n{link}\n\n"
             "Share this link with your friends! When someone joins using it, you will automatically receive a ticket.",
             parse_mode="Markdown"
         )
     except Exception as e:
-        await message.answer("⚠️ Error generating link. Make sure the bot is an administrator in the group.")
+        await message.answer("⚠️ Error generating link. Make sure the bot is an administrator in the group with invite permissions.")
         logging.error(f"Invite link error: {e}")
 
 @dp.message(Command("ebooks"))
@@ -255,10 +254,32 @@ async def cmd_ebooks(message: types.Message):
         await message.answer("📚 You don't have any e-books yet. Check out the store in our group!")
     else:
         ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
-        await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}", parse_mode="Markdown")
+        await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}\n\nSending your files...", parse_mode="Markdown")
+        
+        # Tworzymy mapę nazw na pliki z TIERS
+        name_to_file = {data["name"]: data["file"] for data in TIERS.values()}
+        
+        sent_files = set()
+        for ebook in ebooks:
+            ebook_name = ebook[0]
+            filename = name_to_file.get(ebook_name)
+            
+            if filename and filename not in sent_files:
+                if os.path.exists(filename):
+                    await message.answer_document(
+                        document=FSInputFile(filename),
+                        caption=f"🎁 Here is your file: {ebook_name}"
+                    )
+                    sent_files.add(filename)
+                else:
+                    await message.answer(f"⚠️ File for `{ebook_name}` (`{filename}`) is missing on the server.")
 
 async def process_simulation(message: types.Message, tier_key: str):
     user_id = message.from_user.id
+    if user_id not in ADMIN_IDS:
+        await message.answer("⚠️ Komenda niedostępna.")
+        return
+
     get_or_create_user(user_id)
     
     if tier_key not in TIERS:
@@ -296,6 +317,8 @@ async def process_simulation(message: types.Message, tier_key: str):
 
 @dp.message(Command("sim_pay"))
 async def cmd_sim_pay(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
     args = message.text.split()
     tier_choice = args[1].lower().replace("buy_", "") if len(args) > 1 else "tier3"
     await process_simulation(message, tier_choice)
@@ -314,6 +337,10 @@ async def cmd_tier3(message: types.Message):
 
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Brak uprawnień.")
+        return
+
     bot_username = (await bot.get_me()).username
 
     for tier_key, data in TIERS.items():
