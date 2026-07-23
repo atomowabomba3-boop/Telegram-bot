@@ -1,5 +1,4 @@
 aiogram==3.17.0
-pydantic>=2.7.0,<2.10.0
+pydantic<2.10.0,>=2.7.0
 aiohttp>=3.9.0
-CryptoPayAPI
 
