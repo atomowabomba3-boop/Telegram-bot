@@ -5,13 +5,17 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton
+from CryptoPayAPI.AioCryptoPay import AioCryptoPay
+from CryptoPayAPI.types.asset import USDT
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
+CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"  # Twój token CryptoBot
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 2  # Wpisz tutaj ID swojego topiku (wątku) w grupie
+TOPIC_ID = 3  # ID Twojego topiku w grupie
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+# Inicjalizacja CryptoBota (zmień is_test_net=False, gdy przechodzisz na prawdziwe płatności mainnet)
+crypto = AioCryptoPay(token=CRYPTO_PAY_TOKEN, is_test_net=False)
 
 def init_db():
     conn = sqlite3.connect("bot_database.db")
@@ -59,12 +63,12 @@ def get_or_create_user(user_id: int, ref_id: int = None):
 
 async def set_bot_commands(bot: Bot):
     commands = [
-        BotCommand(command="start", description="Start the bot"),
-        BotCommand(command="tickets", description="Check your ticket balance"),
-        BotCommand(command="ref", description="Get your invite link"),
-        BotCommand(command="ebooks", description="View your purchased e-books"),
-        BotCommand(command="post_ebooks", description="Post ebooks store to group topic"),
-        BotCommand(command="help", description="Show help"),
+        BotCommand(command="start", description="Start bota"),
+        BotCommand(command="tickets", description="Sprawdź swoje losy"),
+        BotCommand(command="ref", description="Pobierz link zaproszeniowy"),
+        BotCommand(command="ebooks", description="Twoje zakupy"),
+        BotCommand(command="post_ebooks", description="Wyślij sklep na topik"),
+        BotCommand(command="help", description="Pomoc"),
     ]
     await bot.set_my_commands(commands)
 
@@ -75,46 +79,57 @@ async def cmd_start(message: types.Message):
     
     if len(args) > 1:
         payload = args[1]
-        if payload in ["buy_tier1", "buy_tier2", "buy_tier3"]:
-            tier_names = {
-                "buy_tier1": "Ebook Tier 1",
-                "buy_tier2": "Ebook Tier 2",
-                "buy_tier3": "Ebook Tier 3"
-            }
-            tier_prices = {
-                "buy_tier1": "$2 USD",
-                "buy_tier2": "$5 USD",
-                "buy_tier3": "$10 USD"
-            }
-            ebook_name = tier_names[payload]
-            price = tier_prices[payload]
-            
-            await message.answer(
-                f"🛒 **Order for {ebook_name} ({price})**\n\n"
-                f"Payment integration is coming soon! Once configured, this will automatically generate your crypto payment address (LTC/USDT/SOL).\n\n"
-                "Stay tuned!",
-                parse_mode="Markdown"
-            )
+        tiers = {
+            "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0},
+            "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0},
+            "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0}
+        }
+        
+        if payload in tiers:
+            tier_data = tiers[payload]
+            try:
+                # Tworzenie faktury w CryptoBocie (w walucie USDT)
+                invoice = await crypto.create_invoice(
+                    amount=tier_data["price"],
+                    asset=USDT,
+                    description=f"Zakup: {tier_data['name']} + losy w Undrgroundzone",
+                    payload=payload
+                )
+                
+                pay_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="💳 OPŁAĆ W CRYPTO", url=invoice.bot_invoice_url)]
+                ])
+                
+                await message.answer(
+                    f"🛒 **Generowanie płatności dla {tier_data['name']}**\n\n"
+                    f"💰 **Kwota:** ${tier_data['price']} USDT\n\n"
+                    "Kliknij poniższy przycisk, aby przejść do bezpiecznej bramki płatności CryptoBot i opłacić zamówienie:",
+                    reply_markup=pay_keyboard,
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                await message.answer("⚠️ Wystąpił błąd podczas generowania płatności. Spróbuj ponownie później.")
+                logging.error(f"CryptoPay error: {e}")
             return
 
     tickets = get_or_create_user(user_id)
     welcome_text = (
-        "👋 Welcome to the Ticket & E-book System!\n\n"
-        "You can check your tickets, get your invite link, or check your e-books.\n\n"
-        f"Your current ticket balance: {tickets}\n\n"
-        "Use /help to see all commands."
+        "👋 Witaj w systemie Undrgroundzone!\n\n"
+        "Tutaj możesz sprawdzić swoje losy, link zaproszeniowy oraz odebrać e-booki.\n\n"
+        f"Twoje saldo losów: {tickets}\n\n"
+        "Użyj /help, aby zobaczyć komendy."
     )
     await message.answer(welcome_text)
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
     help_text = (
-        "🤖 **Available Commands:**\n\n"
-        "📊 /tickets - Check your ticket balance\n"
-        "🔗 /ref - Get your invite link\n"
-        "📚 /ebooks - View your purchased e-books\n"
-        "🛒 /post_ebooks - Post ebooks to group topic\n"
-        "❓ /help - Show help"
+        "🤖 **Dostępne komendy:**\n\n"
+        "📊 /tickets - Sprawdź saldo losów\n"
+        "🔗 /ref - Pobierz link zaproszeniowy\n"
+        "📚 /ebooks - Zobacz zakupione e-booki\n"
+        "🛒 /post_ebooks - Wyślij sklep na grupę\n"
+        "❓ /help - Pomoc"
     )
     await message.answer(help_text, parse_mode="Markdown")
 
@@ -122,7 +137,7 @@ async def cmd_help(message: types.Message):
 async def cmd_tickets(message: types.Message):
     user_id = message.from_user.id
     tickets = get_or_create_user(user_id)
-    await message.answer(f"Your current ticket balance:\n- Total tickets: {tickets}")
+    await message.answer(f"Twoje aktualne saldo losów:\n- Łącznie losów: {tickets}")
 
 @dp.message(Command("ref"))
 async def cmd_ref(message: types.Message):
@@ -143,12 +158,12 @@ async def cmd_ref(message: types.Message):
         conn.close()
         
         await message.answer(
-            f"🔗 **Your personal invite link:**\n{link}\n\n"
-            "Share this link! When someone joins using it, you will automatically get a ticket.",
+            f"🔗 **Twój osobisty link zaproszeniowy:**\n{link}\n\n"
+            "Udostępnij go znajomym! Gdy ktoś dołączy przez ten link, automatycznie otrzymasz los.",
             parse_mode="Markdown"
         )
     except Exception as e:
-        await message.answer("⚠️ Error generating link. Make sure the bot is an administrator in the group.")
+        await message.answer("⚠️ Błąd generowania linku. Upewnij się, że bot jest administratorem w grupie.")
         logging.error(f"Invite link error: {e}")
 
 @dp.message(Command("ebooks"))
@@ -161,10 +176,10 @@ async def cmd_ebooks(message: types.Message):
     conn.close()
     
     if not ebooks:
-        await message.answer("📚 You don't have any e-books yet. Check out our group store to purchase some!")
+        await message.answer("📚 Nie masz jeszcze żadnych e-booków. Sprawdź sklep na naszej grupie!")
     else:
         ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
-        await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}", parse_mode="Markdown")
+        await message.answer(f"📚 **Twoje zakupione e-booki:**\n\n{ebooks_list}", parse_mode="Markdown")
 
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
@@ -174,41 +189,41 @@ async def cmd_post_ebooks(message: types.Message):
 
     caption_1 = (
         "🟢 **Ebook Tier 1**\n"
-        "Basic package for beginners.\n\n"
-        "🎟 **Included:** 50 tickets\n"
-        "💰 **Price:** $2 USD"
+        "Pakiet podstawowy dla początkujących.\n\n"
+        "🎟 **W zestawie:** 50 losów\n"
+        "💰 **Cena:** $2 USD"
     )
     keyboard_1 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 1 ($2)", url="https://t.me/Undrgroundzone_bot?start=buy_tier1")]
+        [InlineKeyboardButton(text="🛒 KUP TIER 1 ($2)", url="https://t.me/Undrgroundzone_bot?start=buy_tier1")]
     ])
 
     caption_2 = (
         "🔵 **Ebook Tier 2**\n"
-        "Medium package with advanced materials.\n\n"
-        "🎟 **Included:** 200 tickets\n"
-        "💰 **Price:** $5 USD"
+        "Pakiet średni z rozszerzonymi materiałami.\n\n"
+        "🎟 **W zestawie:** 200 losów\n"
+        "💰 **Cena:** $5 USD"
     )
     keyboard_2 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 2 ($5)", url="https://t.me/Undrgroundzone_bot?start=buy_tier2")]
+        [InlineKeyboardButton(text="🛒 KUP TIER 2 ($5)", url="https://t.me/Undrgroundzone_bot?start=buy_tier2")]
     ])
 
     caption_3 = (
         "🟣 **Ebook Tier 3**\n"
-        "Elite package – full access and maximum perks.\n\n"
-        "🎟 **Included:** 500 tickets\n"
-        "💰 **Price:** $10 USD"
+        "Pakiet elitarny – pełen dostęp i maksymalne korzyści.\n\n"
+        "🎟 **W zestawie:** 500 losów\n"
+        "💰 **Cena:** $10 USD"
     )
     keyboard_3 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 3 ($10)", url="https://t.me/Undrgroundzone_bot?start=buy_tier3")]
+        [InlineKeyboardButton(text="🛒 KUP TIER 3 ($10)", url="https://t.me/Undrgroundzone_bot?start=buy_tier3")]
     ])
 
     try:
         await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=types.FSInputFile(photo_green), caption=caption_1, reply_markup=keyboard_1, parse_mode="Markdown")
         await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=types.FSInputFile(photo_blue), caption=caption_2, reply_markup=keyboard_2, parse_mode="Markdown")
         await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=types.FSInputFile(photo_purple), caption=caption_3, reply_markup=keyboard_3, parse_mode="Markdown")
-        await message.answer("✅ E-books successfully posted to the group topic!")
+        await message.answer("✅ Sklep został pomyślnie wysłany na topik grupy!")
     except Exception as e:
-        await message.answer(f"⚠️ Error posting to topic (check TOPIC_ID): {e}")
+        await message.answer(f"⚠️ Błąd wysyłania: {e}")
 
 @dp.chat_member()
 async def member_join(event: ChatMemberUpdated):
@@ -242,8 +257,8 @@ async def member_join(event: ChatMemberUpdated):
                         try:
                             await bot.send_message(
                                 inviter_id,
-                                f"🎉 Someone joined the group using your invite link!\n"
-                                f"Your new ticket balance: {inviter_tickets}"
+                                f"🎉 Ktoś dołączył do grupy przez Twój link zaproszeniowy!\n"
+                                f"Twoje nowe saldo losów: {inviter_tickets}"
                             )
                         except Exception:
                             pass
@@ -252,7 +267,7 @@ async def member_join(event: ChatMemberUpdated):
             try:
                 await bot.send_message(
                     new_user_id,
-                    "👋 Welcome to the group! You have received your starting ticket."
+                    "👋 Witaj w grupie! Otrzymałeś swój początkowy los."
                 )
             except Exception:
                 pass
@@ -260,6 +275,7 @@ async def member_join(event: ChatMemberUpdated):
 async def main():
     logging.basicConfig(level=logging.INFO)
     await set_bot_commands(bot)
+    await crypto.close()  # Na koniec zamknięcie sesji
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
