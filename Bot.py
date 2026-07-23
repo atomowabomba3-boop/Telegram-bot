@@ -6,11 +6,11 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
+CHANNEL_ID = "@undergroundzon" # Wstaw tutaj nazwę lub ID swojego kanału, np. "@mojkanal"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# Inicjalizacja bazy danych SQLite do trzymania losów użytkowników
 def init_db():
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
@@ -26,11 +26,10 @@ def init_db():
 
 init_db()
 
-# Funkcja pomocnicza do pobierania/tworzenia użytkownika
 def get_or_create_user(user_id: int, ref_id: int = None):
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT tickets, invited_by FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
     
     if not row:
@@ -53,7 +52,7 @@ async def cmd_start(message: types.Message):
         try:
             ref_id = int(args[1])
             if ref_id == user_id:
-                ref_id = None # Nie można zaprosić samego siebie
+                ref_id = None
         except ValueError:
             pass
             
@@ -70,13 +69,17 @@ async def cmd_tickets(message: types.Message):
     tickets = get_or_create_user(user_id)
     await message.answer(f"Your current ticket balance:\n- Total tickets: {tickets}")
 
-# Komenda do resetowania losów przy nowym konkursie (np. /reset_contest)
+@dp.message(Command("ref"))
+async def cmd_ref(message: types.Message):
+    user_id = message.from_user.id
+    bot_info = await bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+    await message.answer(f"Here is your personal invite link:\n{ref_link}\n\nShare it with friends to get more tickets!")
+
 @dp.message(Command("reset_contest"))
 async def cmd_reset_contest(message: types.Message):
-    # Tutaj możesz ewentualnie dodać zabezpieczenie, żeby tylko Ty (Admin ID) mogłeś to wpisać
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
-    # Resetuje losy wszystkich użytkowników z powrotem do wartości bazowej (np. 0 lub 1)
     cursor.execute("UPDATE users SET tickets = 0")
     conn.commit()
     conn.close()
