@@ -11,10 +11,19 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 3
+TOPIC_ID = 2
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+
+# Definicje produktów (e-booki / pakiety)
+TIERS = {
+    "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50, "file": "ebook_1.pdf"},
+    "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200, "file": "ebook_2.pdf"},
+    "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0, "tickets": 500, "file": "ebook_3.pdf"},
+    "buy_ebook1": {"name": "Single Ebook #1", "price": 1.5, "tickets": 20, "file": "single_1.pdf"},
+    "buy_ebook2": {"name": "Single Ebook #2", "price": 1.5, "tickets": 20, "file": "single_2.pdf"}
+}
 
 async def create_crypto_invoice(amount: float, asset: str, description: str, payload: str):
     url = "https://pay.crypt.bot/api/createInvoice"
@@ -87,6 +96,7 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="tickets", description="Check your tickets"),
         BotCommand(command="ref", description="Get your invite link"),
         BotCommand(command="ebooks", description="Your purchased e-books"),
+        BotCommand(command="store", description="Show available e-books"),
         BotCommand(command="post_ebooks", description="Post store to group topic"),
         BotCommand(command="sim_pay", description="Simulate a successful purchase"),
         BotCommand(command="help", description="Show help"),
@@ -102,22 +112,18 @@ async def cmd_start(message: types.Message):
         payload = args[1]
         parts = payload.split("_")
         
-        # Jeśli podano już konkretną walutę (np. buy_tier1_BTC)
+        # Obsługa wybranej waluty (np. buy_tier1_BTC)
         if len(parts) == 3:
-            tier_key, asset = f"{parts[0]}_{parts[1]}", parts[2].upper()
-            tiers = {
-                "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50, "file": "ebook_1.pdf"},
-                "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200, "file": "ebook_2.pdf"},
-                "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0, "tickets": 500, "file": "ebook_3.pdf"}
-            }
+            tier_key = f"{parts[0]}_{parts[1]}"
+            asset = parts[2].upper()
             
-            if tier_key in tiers:
-                tier_data = tiers[tier_key]
+            if tier_key in TIERS:
+                tier_data = TIERS[tier_key]
                 try:
                     invoice_url = await create_crypto_invoice(
                         amount=tier_data["price"],
                         asset=asset,
-                        description=f"Purchase: {tier_data['name']} + {tier_data['tickets']} tickets in Undrgroundzone",
+                        description=f"Purchase: {tier_data['name']} + {tier_data['tickets']} tickets",
                         payload=payload
                     )
                     
@@ -138,16 +144,9 @@ async def cmd_start(message: types.Message):
                     logging.error(f"CryptoPay error: {e}")
                 return
         
-        # Jeśli kliknięto przycisk zakupu z grupy – wyświetlamy wybór waluty
-        base_tiers = {
-            "buy_tier1": "Ebook Tier 1 ($2)",
-            "buy_tier2": "Ebook Tier 2 ($5)",
-            "buy_tier3": "Ebook Tier 3 ($10)"
-        }
-        if payload in base_tiers:
-            bot_info = await bot.get_me()
-            bot_username = bot_info.username
-            
+        # Wybór waluty dla danego produktu
+        if payload in TIERS:
+            bot_username = (await bot.get_me()).username
             select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
                     InlineKeyboardButton(text="USDT", url=f"https://t.me/{bot_username}?start={payload}_USDT"),
@@ -156,7 +155,7 @@ async def cmd_start(message: types.Message):
                 ]
             ])
             await message.answer(
-                f"💱 **Choose cryptocurrency for {base_tiers[payload]}:**",
+                f"💱 **Choose cryptocurrency for {TIERS[payload]['name']} (${TIERS[payload]['price']}):**",
                 reply_markup=select_keyboard,
                 parse_mode="Markdown"
             )
@@ -165,21 +164,34 @@ async def cmd_start(message: types.Message):
     tickets = get_or_create_user(user_id)
     welcome_text = (
         "👋 Welcome to the Undrgroundzone System!\n\n"
-        "Here you can check your tickets, invite link, and claim your e-books.\n\n"
+        "Here you can check your tickets, invite link, and buy e-books.\n\n"
         f"Your ticket balance: {tickets}\n\n"
-        "Use /help to see available commands."
+        "Use /store to see available e-books or /help for commands."
     )
     await message.answer(welcome_text)
+
+@dp.message(Command("store"))
+async def cmd_store(message: types.Message):
+    bot_username = (await bot.get_me()).username
+    store_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🟢 Ebook Tier 1 ($2)", url=f"https://t.me/{bot_username}?start=buy_tier1")],
+        [InlineKeyboardButton(text="🔵 Ebook Tier 2 ($5)", url=f"https://t.me/{bot_username}?start=buy_tier2")],
+        [InlineKeyboardButton(text="🟣 Ebook Tier 3 ($10)", url=f"https://t.me/{bot_username}?start=buy_tier3")],
+        [InlineKeyboardButton(text="📖 Single Ebook #1 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook1")],
+        [InlineKeyboardButton(text="📖 Single Ebook #2 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook2")]
+    ])
+    await message.answer("📚 **Available E-books Store:**\nSelect a product to purchase:", reply_markup=store_keyboard, parse_mode="Markdown")
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
     help_text = (
         "🤖 **Available Commands:**\n\n"
+        "📚 /store - Browse and buy e-books\n"
         "📊 /tickets - Check your ticket balance\n"
         "🔗 /ref - Get your invite link\n"
-        "📚 /ebooks - View your purchased e-books\n"
+        "📖 /ebooks - View your purchased e-books\n"
         "🛒 /post_ebooks - Post store to group topic\n"
-        "🧪 /sim_pay - Simulate a test purchase & receive file\n"
+        "🧪 /sim_pay - Simulate a test purchase\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
@@ -196,10 +208,7 @@ async def cmd_ref(message: types.Message):
     get_or_create_user(user_id)
     
     try:
-        invite = await bot.create_chat_invite_link(
-            chat_id=CHAT_ID,
-            creates_join_request=False
-        )
+        invite = await bot.create_chat_invite_link(chat_id=CHAT_ID, creates_join_request=False)
         link = invite.invite_link
         
         conn = sqlite3.connect("bot_database.db")
@@ -227,7 +236,7 @@ async def cmd_ebooks(message: types.Message):
     conn.close()
     
     if not ebooks:
-        await message.answer("📚 You don't have any e-books yet. Check out the store in our group!")
+        await message.answer("📚 You don't have any e-books yet. Use /store to check them out!")
     else:
         ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
         await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}", parse_mode="Markdown")
@@ -235,80 +244,57 @@ async def cmd_ebooks(message: types.Message):
 @dp.message(Command("sim_pay"))
 async def cmd_sim_pay(message: types.Message):
     user_id = message.from_user.id
-    tier_name = "Ebook Tier 3"
-    added_tickets = 500
-    file_to_send = "ebook_3.pdf"
+    tier_key = "buy_tier3"  # Domyślny testowy produkt
+    tier_data = TIERS[tier_key]
     
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (added_tickets, user_id))
-    cursor.execute("INSERT INTO user_ebooks (user_id, ebook_name) VALUES (?, ?)", (user_id, tier_name))
+    cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (tier_data["tickets"], user_id))
+    cursor.execute("INSERT INTO user_ebooks (user_id, ebook_name) VALUES (?, ?)", (user_id, tier_data["name"]))
     conn.commit()
     
     cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
-    total_tickets = row[0] if row else added_tickets
+    total_tickets = cursor.fetchone()[0]
     conn.close()
     
     await message.answer(
         f"🧪 **[PURCHASE SIMULATION]**\n\n"
-        f"✅ Successfully simulated payment for: **{tier_name}**\n"
-        f"🎟 Added tickets: **+{added_tickets}**\n"
+        f"✅ Successfully simulated payment for: **{tier_data['name']}**\n"
+        f"🎟 Added tickets: **+{tier_data['tickets']}**\n"
         f"📊 Your new ticket balance: **{total_tickets}**",
         parse_mode="Markdown"
     )
     
+    # Wysyłanie pliku z dysku
+    file_to_send = tier_data["file"]
     if os.path.exists(file_to_send):
         await message.answer_document(
             document=FSInputFile(file_to_send),
-            caption=f"🎁 Here is your purchased file for {tier_name}!"
+            caption=f"🎁 Here is your purchased file: {tier_data['name']}"
         )
     else:
-        await message.answer(f"⚠️ Note: Database updated, but file `{file_to_send}` was not found in the bot directory.")
+        await message.answer(f"⚠️ Warning: Database updated, but file `{file_to_send}` was not found on the server.")
 
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
-    photo_green = "ebook_green.png.jpg"
-    photo_blue = "ebook_blue.png.jpg"
-    photo_purple = "ebook_purple.png.jpg"
-
-    bot_info = await bot.get_me()
-    bot_username = bot_info.username
-
-    caption_1 = (
-        "🟢 **Ebook Tier 1**\n"
-        "Basic package for beginners.\n\n"
-        "🎟 **Included:** 50 tickets\n"
-        "💰 **Price:** $2 USD"
-    )
-    keyboard_1 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 1 ($2)", url=f"https://t.me/{bot_username}?start=buy_tier1")]
+    bot_username = (await bot.get_me()).username
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🛒 BUY TIER 1 ($2)", url=f"https://t.me/{bot_username}?start=buy_tier1")],
+        [InlineKeyboardButton(text="🛒 BUY TIER 2 ($5)", url=f"https://t.me/{bot_username}?start=buy_tier2")],
+        [InlineKeyboardButton(text="🛒 BUY TIER 3 ($10)", url=f"https://t.me/{bot_username}?start=buy_tier3")],
+        [InlineKeyboardButton(text="🛒 BUY SINGLE EBOOK #1 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook1")],
+        [InlineKeyboardButton(text="🛒 BUY SINGLE EBOOK #2 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook2")]
     ])
-
-    caption_2 = (
-        "🔵 **Ebook Tier 2**\n"
-        "Medium package with advanced materials.\n\n"
-        "🎟 **Included:** 200 tickets\n"
-        "💰 **Price:** $5 USD"
-    )
-    keyboard_2 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 2 ($5)", url=f"https://t.me/{bot_username}?start=buy_tier2")]
-    ])
-
-    caption_3 = (
-        "🟣 **Ebook Tier 3**\n"
-        "Elite package – full access and maximum perks.\n\n"
-        "🎟 **Included:** 500 tickets\n"
-        "💰 **Price:** $10 USD"
-    )
-    keyboard_3 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 3 ($10)", url=f"https://t.me/{bot_username}?start=buy_tier3")]
-    ])
-
+    
     try:
-        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=FSInputFile(photo_green), caption=caption_1, reply_markup=keyboard_1, parse_mode="Markdown")
-        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=FSInputFile(photo_blue), caption=caption_2, reply_markup=keyboard_2, parse_mode="Markdown")
-        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=FSInputFile(photo_purple), caption=caption_3, reply_markup=keyboard_3, parse_mode="Markdown")
+        await bot.send_message(
+            chat_id=CHAT_ID,
+            message_thread_id=TOPIC_ID,
+            text="📚 **Undrgroundzone E-book Store**\n\nChoose an e-book or package below:",
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
         await message.answer("✅ Store successfully posted to the group topic!")
     except Exception as e:
         await message.answer(f"⚠️ Error posting store: {e}")
@@ -322,7 +308,6 @@ async def member_join(event: ChatMemberUpdated):
             
             if invite_link_obj and invite_link_obj.invite_link:
                 link_url = invite_link_obj.invite_link
-                
                 conn = sqlite3.connect("bot_database.db")
                 cursor = conn.cursor()
                 cursor.execute("SELECT user_id FROM invite_links WHERE invite_link = ?", (link_url,))
@@ -336,10 +321,8 @@ async def member_join(event: ChatMemberUpdated):
                         cursor = conn.cursor()
                         cursor.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
                         conn.commit()
-                        
                         cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (inviter_id,))
-                        res = cursor.fetchone()
-                        inviter_tickets = res[0] if res else 0
+                        inviter_tickets = cursor.fetchone()[0]
                         conn.close()
                         
                         try:
