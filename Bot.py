@@ -17,26 +17,29 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 TIERS = {
-    "buy_tier1": {
+    "tier1": {
         "name": "Ebook Tier 1", 
         "price": 2.0, 
         "tickets": 50, 
         "file": "ebook_1.pdf",
-        "photo": "ebook_green.png.jpg"
+        "photo": "ebook_green.png.jpg",
+        "payload": "buy_tier1"
     },
-    "buy_tier2": {
+    "tier2": {
         "name": "Ebook Tier 2", 
         "price": 5.0, 
         "tickets": 200, 
         "file": "ebook_2.pdf",
-        "photo": "ebook_blue.png.jpg"
+        "photo": "ebook_blue.png.jpg",
+        "payload": "buy_tier2"
     },
-    "buy_tier3": {
+    "tier3": {
         "name": "Ebook Tier 3", 
         "price": 10.0, 
         "tickets": 500, 
         "file": "ebook_3.pdf",
-        "photo": "ebook_purple.png.jpg"
+        "photo": "ebook_purple.png.jpg",
+        "payload": "buy_tier3"
     }
 }
 
@@ -115,6 +118,9 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="ebooks", description="Your purchased e-books"),
         BotCommand(command="post_ebooks", description="Post store to group topic"),
         BotCommand(command="sim_pay", description="Simulate purchase (e.g. /sim_pay tier1)"),
+        BotCommand(command="tier1", description="Simulate purchase of Tier 1"),
+        BotCommand(command="tier2", description="Simulate purchase of Tier 2"),
+        BotCommand(command="tier3", description="Simulate purchase of Tier 3"),
         BotCommand(command="help", description="Show help"),
     ]
     await bot.set_my_commands(commands)
@@ -130,7 +136,7 @@ async def cmd_start(message: types.Message):
         parts = payload.split("_")
         
         if len(parts) == 3:
-            tier_key = f"{parts[0]}_{parts[1]}"
+            tier_key = f"{parts[1]}"
             asset = parts[2].upper()
             
             if tier_key in TIERS:
@@ -160,22 +166,25 @@ async def cmd_start(message: types.Message):
                     logging.error(f"CryptoPay error: {e}")
                 return
         
-        if payload in TIERS:
+        # Obsługa starego i nowego formatu payloadu z przycisków sklepiku
+        clean_payload = payload.replace("buy_", "")
+        if clean_payload in TIERS:
             bot_username = (await bot.get_me()).username
+            p_key = f"buy_{clean_payload}"
             select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    InlineKeyboardButton(text="USDT", url=f"https://t.me/{bot_username}?start={payload}_USDT"),
-                    InlineKeyboardButton(text="TON", url=f"https://t.me/{bot_username}?start={payload}_TON"),
-                    InlineKeyboardButton(text="BTC", url=f"https://t.me/{bot_username}?start={payload}_BTC")
+                    InlineKeyboardButton(text="USDT", url=f"https://t.me/{bot_username}?start={p_key}_USDT"),
+                    InlineKeyboardButton(text="TON", url=f"https://t.me/{bot_username}?start={p_key}_TON"),
+                    InlineKeyboardButton(text="BTC", url=f"https://t.me/{bot_username}?start={p_key}_BTC")
                 ],
                 [
-                    InlineKeyboardButton(text="ETH", url=f"https://t.me/{bot_username}?start={payload}_ETH"),
-                    InlineKeyboardButton(text="LTC", url=f"https://t.me/{bot_username}?start={payload}_LTC"),
-                    InlineKeyboardButton(text="TRX", url=f"https://t.me/{bot_username}?start={payload}_TRX")
+                    InlineKeyboardButton(text="ETH", url=f"https://t.me/{bot_username}?start={p_key}_ETH"),
+                    InlineKeyboardButton(text="LTC", url=f"https://t.me/{bot_username}?start={p_key}_LTC"),
+                    InlineKeyboardButton(text="TRX", url=f"https://t.me/{bot_username}?start={p_key}_TRX")
                 ]
             ])
             await message.answer(
-                f"💱 **Choose cryptocurrency for {TIERS[payload]['name']} (${TIERS[payload]['price']}):**",
+                f"💱 **Choose cryptocurrency for {TIERS[clean_payload]['name']} (${TIERS[clean_payload]['price']}):**",
                 reply_markup=select_keyboard,
                 parse_mode="Markdown"
             )
@@ -199,6 +208,7 @@ async def cmd_help(message: types.Message):
         "📚 /ebooks - View your purchased e-books\n"
         "🛒 /post_ebooks - Post store to group topic\n"
         "🧪 /sim_pay <tier1/tier2/tier3> - Simulate a test purchase\n"
+        "⚡ /tier1, /tier2, /tier3 - Quick simulate test purchase for specific tier\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
@@ -248,21 +258,12 @@ async def cmd_ebooks(message: types.Message):
         ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
         await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}", parse_mode="Markdown")
 
-@dp.message(Command("sim_pay"))
-async def cmd_sim_pay(message: types.Message):
+async def process_simulation(message: types.Message, tier_key: str):
     user_id = message.from_user.id
-    get_or_create_user(user_id) # Zapewnij, że użytkownik istnieje w bazie
+    get_or_create_user(user_id)
     
-    args = message.text.split()
-    tier_choice = args[1].lower() if len(args) > 1 else "tier3"
-    
-    if not tier_choice.startswith("buy_"):
-        tier_key = f"buy_{tier_choice}"
-    else:
-        tier_key = tier_choice
-        
     if tier_key not in TIERS:
-        await message.answer("⚠️ Invalid tier! Use: `/sim_pay tier1`, `/sim_pay tier2` or `/sim_pay tier3`", parse_mode="Markdown")
+        await message.answer("⚠️ Invalid tier!", parse_mode="Markdown")
         return
         
     tier_data = TIERS[tier_key]
@@ -294,13 +295,31 @@ async def cmd_sim_pay(message: types.Message):
     else:
         await message.answer(f"⚠️ Note: Database updated, but file `{file_to_send}` was not found in the bot directory.")
 
+@dp.message(Command("sim_pay"))
+async def cmd_sim_pay(message: types.Message):
+    args = message.text.split()
+    tier_choice = args[1].lower().replace("buy_", "") if len(args) > 1 else "tier3"
+    await process_simulation(message, tier_choice)
+
+@dp.message(Command("tier1"))
+async def cmd_tier1(message: types.Message):
+    await process_simulation(message, "tier1")
+
+@dp.message(Command("tier2"))
+async def cmd_tier2(message: types.Message):
+    await process_simulation(message, "tier2")
+
+@dp.message(Command("tier3"))
+async def cmd_tier3(message: types.Message):
+    await process_simulation(message, "tier3")
+
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
     bot_username = (await bot.get_me()).username
 
     for tier_key, data in TIERS.items():
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🛒 BUY {data['name'].upper()} (${data['price']})", url=f"https://t.me/{bot_username}?start={tier_key}")]
+            [InlineKeyboardButton(text=f"🛒 BUY {data['name'].upper()} (${data['price']})", url=f"https://t.me/{bot_username}?start={data['payload']}")]
         ])
         
         caption_text = (
