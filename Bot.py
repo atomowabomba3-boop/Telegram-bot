@@ -15,6 +15,7 @@ dp = Dispatcher(storage=MemoryStorage())
 def init_db():
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
+    # Tabela użytkowników i losów
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -22,10 +23,19 @@ def init_db():
             invited_by INTEGER
         )
     """)
+    # Tabela unikalnych linków zaproszeniowych do kanału
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS invite_links (
             invite_link TEXT PRIMARY KEY,
             user_id INTEGER
+        )
+    """)
+    # Tabela zakupionych e-booków
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_ebooks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            ebook_name TEXT
         )
     """)
     conn.commit()
@@ -54,6 +64,7 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="start", description="Start the bot"),
         BotCommand(command="tickets", description="Check your ticket balance"),
         BotCommand(command="ref", description="Get your channel invite link"),
+        BotCommand(command="ebooks", description="View your purchased e-books"),
         BotCommand(command="help", description="Show available commands"),
     ]
     await bot.set_my_commands(commands)
@@ -65,7 +76,7 @@ async def cmd_start(message: types.Message):
     
     welcome_text = (
         "👋 Welcome to the Ticket & E-book System!\n\n"
-        "You can check your tickets, get your channel invite link, or browse e-books on our sub-channel.\n\n"
+        "You can check your tickets, get your channel invite link, or check your e-books.\n\n"
         f"Your current ticket balance: {tickets}\n\n"
         "Use /help to see all commands."
     )
@@ -77,6 +88,7 @@ async def cmd_help(message: types.Message):
         "🤖 **Available Commands:**\n\n"
         "📊 /tickets - Check your ticket balance\n"
         "🔗 /ref - Get your channel invite link\n"
+        "📚 /ebooks - View your purchased e-books\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
@@ -107,12 +119,27 @@ async def cmd_ref(message: types.Message):
         
         await message.answer(
             f"🔗 **Your personal channel invite link:**\n{link}\n\n"
-            "Share this link to the channel with your friends! When they join using it, you will automatically get a ticket.",
+            "Share this link with your friends! When they join the channel using it, you will automatically get a ticket.",
             parse_mode="Markdown"
         )
     except Exception as e:
         await message.answer("⚠️ Error generating link. Make sure the bot is an administrator on the channel.")
         logging.error(f"Invite link error: {e}")
+
+@dp.message(Command("ebooks"))
+async def cmd_ebooks(message: types.Message):
+    user_id = message.from_user.id
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT ebook_name FROM user_ebooks WHERE user_id = ?", (user_id,))
+    ebooks = cursor.fetchall()
+    conn.close()
+    
+    if not ebooks:
+        await message.answer("📚 You don't have any e-books yet. Check out our channel to purchase some!")
+    else:
+        ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
+        await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}", parse_mode="Markdown")
 
 @dp.chat_member()
 async def member_join(event: ChatMemberUpdated):
