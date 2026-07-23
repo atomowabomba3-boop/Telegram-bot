@@ -11,7 +11,7 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 2
+TOPIC_ID = 3
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -114,7 +114,7 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="ref", description="Get your invite link"),
         BotCommand(command="ebooks", description="Your purchased e-books"),
         BotCommand(command="post_ebooks", description="Post store to group topic"),
-        BotCommand(command="sim_pay", description="Simulate a successful purchase"),
+        BotCommand(command="sim_pay", description="Simulate purchase (e.g. /sim_pay tier1)"),
         BotCommand(command="help", description="Show help"),
     ]
     await bot.set_my_commands(commands)
@@ -122,6 +122,7 @@ async def set_bot_commands(bot: Bot):
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
+    get_or_create_user(user_id)
     args = message.text.split()
     
     if len(args) > 1:
@@ -197,7 +198,7 @@ async def cmd_help(message: types.Message):
         "🔗 /ref - Get your invite link\n"
         "📚 /ebooks - View your purchased e-books\n"
         "🛒 /post_ebooks - Post store to group topic\n"
-        "🧪 /sim_pay - Simulate a test purchase & receive file\n"
+        "🧪 /sim_pay <tier1/tier2/tier3> - Simulate a test purchase\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
@@ -250,7 +251,20 @@ async def cmd_ebooks(message: types.Message):
 @dp.message(Command("sim_pay"))
 async def cmd_sim_pay(message: types.Message):
     user_id = message.from_user.id
-    tier_key = "buy_tier3"
+    get_or_create_user(user_id) # Zapewnij, że użytkownik istnieje w bazie
+    
+    args = message.text.split()
+    tier_choice = args[1].lower() if len(args) > 1 else "tier3"
+    
+    if not tier_choice.startswith("buy_"):
+        tier_key = f"buy_{tier_choice}"
+    else:
+        tier_key = tier_choice
+        
+    if tier_key not in TIERS:
+        await message.answer("⚠️ Invalid tier! Use: `/sim_pay tier1`, `/sim_pay tier2` or `/sim_pay tier3`", parse_mode="Markdown")
+        return
+        
     tier_data = TIERS[tier_key]
     
     conn = sqlite3.connect("bot_database.db")
