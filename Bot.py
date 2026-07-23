@@ -2,19 +2,20 @@ import asyncio
 import logging
 import sqlite3
 import os
+import random
 import aiohttp
+from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, CallbackQuery
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
 TOPIC_ID = 3
 
-# TUTAJ WPISZ SWOJE TELEGRAM USER_ID JAKO ADMINISTRATORA
-ADMIN_IDS = [8998575936] # Zamień na swoje prawdziwe ID numeryczne
+ADMIN_IDS = [8998575936]  # Wpisz swoje prawdziwe ID
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -92,6 +93,28 @@ def init_db():
             ebook_name TEXT
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS giveaway_pool (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            amount REAL DEFAULT 10.0
+        )
+    """)
+    cursor.execute("""
+        INSERT OR IGNORE INTO giveaway_pool (id, amount) VALUES (1, 10.0)
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS giveaway_participants (
+            user_id INTEGER PRIMARY KEY
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS active_giveaways (
+            message_id INTEGER PRIMARY KEY,
+            winners_count INTEGER,
+            ends_at TEXT,
+            status TEXT DEFAULT 'active'
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -112,6 +135,155 @@ def get_or_create_user(user_id: int, ref_id: int = None):
         
     conn.close()
     return tickets
+
+def add_to_giveaway_pool(price: float):
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    added_amount = price * 0.8  # 80% do puli
+    cursor.execute("UPDATE giveaway_pool SET amount = amount + ? WHERE id = 1", (added_amount,))
+    conn.commit()
+    cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
+    current_pool = cursor.fetchone()[0]
+    conn.close()
+    return current_pool
+
+async def update_all_active_giveaways(bot: Bot):
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
+    pool_amount = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM giveaway_participants")
+    participants_count = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT message_id, winners_count, ends_at FROM active_giveaways WHERE status = 'active'")
+    giveaways = cursor.fetchall()
+    conn.close()
+
+    now = datetime.now()
+    for msg_id, winners_count, ends_at_str in giveaways:
+        ends_at = datetime.fromisoformat(ends_at_str)
+        remaining = ends_at - now
+        
+        if remaining.total_seconds() <= 0:
+            continue
+            
+        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        time_left = f"{hours}h {minutes}m {seconds}s"
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎉 DOŁĄCZ DO GIVEAWAYA", callback_data="join_giveaway")]
+        ])
+        text = (
+            "🎁 **WIELKI GIVEAWAY UNDRGROUNDZONE** 🎁\n\n"
+            f"💰 **Aktualna pula nagród:** `${pool_amount:.2f} USD`\n"
+            f"🏆 **Liczba zwycięzców:** `{winners_count}` (nagroda dzielona równo)\n"
+            f"👥 **Uczestnicy:** `{participants_count}` osób\n"
+            f"⏳ **Koniec za:** `{time_left}`\n\n"
+            "Kliknij przycisk poniżej, aby wziąć udział! (Więcej biletów z zakupów i poleceń = większa szansa)"
+        )
+        try:
+            await bot.edit_message_text(
+                chat_id=CHAT_ID,
+                message_id=msg_id,
+                text=text,
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+
+async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: int):
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT status FROM active_giveaways WHERE message_id = ?", (msg_id,))
+    row = cursor.fetchone()
+    
+    if not row or row[0] != 'active':
+        conn.close()
+        return
+
+    cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
+    pool_amount = cursor.fetchone()[0]
+
+    cursor.execute("SELECT user_id FROM giveaway_participants")
+    participants = [row[0] for row in cursor.fetchall()]
+
+    if not participants:
+        cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
+        cursor.execute("DELETE FROM giveaway_participants")
+        conn.commit()
+        conn.close()
+        try:
+            await bot.edit_message_text(
+                chat_id=CHAT_ID,
+                message_id=msg_id,
+                text="🎉 **WYNIKI GIVEAWAYA UNDRGROUNDZONE** 🎉\n\n⚠️ Nikt nie wziął udziału w giveawayu!",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            pass
+        return
+
+    ticket_pool = []
+    for uid in participants:
+        cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (uid,))
+        user_tickets = cursor.fetchone()[0] if cursor.fetchone() else 1
+        ticket_pool.extend([uid] * max(1, user_tickets))
+
+    actual_winners_count = min(winners_count, len(set(ticket_pool)))
+    winners = []
+    while len(winners) < actual_winners_count and ticket_pool:
+        winner = random.choice(ticket_pool)
+        if winner not in winners:
+            winners.append(winner)
+
+    prize_per_winner = pool_amount / len(winners) if winners else 0
+
+    cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
+    cursor.execute("UPDATE giveaway_pool SET amount = 10.0 WHERE id = 1")
+    cursor.execute("DELETE FROM giveaway_participants")
+    conn.commit()
+    conn.close()
+
+    winners_mentions = []
+    for w_id in winners:
+        try:
+            member = await bot.get_chat_member(chat_id=CHAT_ID, user_id=w_id)
+            name = member.user.full_name
+            winners_mentions.append(f"• [{name}](tg://user?id={w_id})")
+        except Exception:
+            winners_mentions.append(f"• Użytkownik ID: `{w_id}`")
+
+    winners_text = "\n".join(winners_mentions) if winners_mentions else "Brak zwycięzców"
+
+    result_text = (
+        "🎉 **WYNIKI GIVEAWAYA UNDRGROUNDZONE** 🎉\n\n"
+        f"💰 **Rozdana pula:** `${pool_amount:.2f} USD`\n"
+        f"🏆 **Nagroda dla każdego z {len(winners)} zwycięzców:** **`${prize_per_winner:.2f} USD`**\n\n"
+        f"🔥 **Zwycięzcy:**\n{winners_text}\n\n"
+        "Gratulacje! Pula nagród w boccie została zresetowana."
+    )
+
+    try:
+        await bot.edit_message_text(
+            chat_id=CHAT_ID,
+            message_id=msg_id,
+            text=result_text,
+            parse_mode="Markdown"
+        )
+    except Exception:
+        await bot.send_message(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, text=result_text, parse_mode="Markdown")
+
+async def giveaway_timer_task(bot: Bot, msg_id: int, duration_hours: float, winners_count: int):
+    await asyncio.sleep(duration_hours * 3600)
+    await finish_giveaway_automatically(bot, msg_id, winners_count)
+
+async def background_ticker(bot: Bot):
+    while True:
+        await update_all_active_giveaways(bot)
+        await asyncio.sleep(10)
 
 async def set_bot_commands(bot: Bot):
     commands = [
@@ -256,9 +428,7 @@ async def cmd_ebooks(message: types.Message):
         ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
         await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}\n\nSending your files...", parse_mode="Markdown")
         
-        # Tworzymy mapę nazw na pliki z TIERS
         name_to_file = {data["name"]: data["file"] for data in TIERS.values()}
-        
         sent_files = set()
         for ebook in ebooks:
             ebook_name = ebook[0]
@@ -271,8 +441,6 @@ async def cmd_ebooks(message: types.Message):
                         caption=f"🎁 Here is your file: {ebook_name}"
                     )
                     sent_files.add(filename)
-                else:
-                    await message.answer(f"⚠️ File for `{ebook_name}` (`{filename}`) is missing on the server.")
 
 async def process_simulation(message: types.Message, tier_key: str):
     user_id = message.from_user.id
@@ -293,7 +461,13 @@ async def process_simulation(message: types.Message, tier_key: str):
     cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (tier_data["tickets"], user_id))
     cursor.execute("INSERT INTO user_ebooks (user_id, ebook_name) VALUES (?, ?)", (user_id, tier_data["name"]))
     conn.commit()
+    conn.close()
     
+    new_pool = add_to_giveaway_pool(tier_data["price"])
+    await update_all_active_giveaways(bot)
+    
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
     cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
     total_tickets = cursor.fetchone()[0]
     conn.close()
@@ -302,7 +476,8 @@ async def process_simulation(message: types.Message, tier_key: str):
         f"🧪 **[PURCHASE SIMULATION]**\n\n"
         f"✅ Successfully simulated payment for: **{tier_data['name']}**\n"
         f"🎟 Added tickets: **+{tier_data['tickets']}**\n"
-        f"📊 Your new ticket balance: **{total_tickets}**",
+        f"📊 Your new ticket balance: **{total_tickets}**\n"
+        f"💰 New giveaway pool: **${new_pool:.2f} USD**",
         parse_mode="Markdown"
     )
     
@@ -312,8 +487,6 @@ async def process_simulation(message: types.Message, tier_key: str):
             document=FSInputFile(file_to_send),
             caption=f"🎁 Here is your purchased file for {tier_data['name']}!"
         )
-    else:
-        await message.answer(f"⚠️ Note: Database updated, but file `{file_to_send}` was not found in the bot directory.")
 
 @dp.message(Command("sim_pay"))
 async def cmd_sim_pay(message: types.Message):
@@ -334,6 +507,110 @@ async def cmd_tier2(message: types.Message):
 @dp.message(Command("tier3"))
 async def cmd_tier3(message: types.Message):
     await process_simulation(message, "tier3")
+
+@dp.message(Command("startgiveaway"))
+async def cmd_start_giveaway(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Brak uprawnień.")
+        return
+        
+    args = message.text.split()
+    if len(args) < 3 or not args[1].isdigit():
+        await message.answer("⚠️ Użycie: `/startgiveaway <liczba_wygranych> <godziny>`\nNp. `/startgiveaway 3 24`", parse_mode="Markdown")
+        return
+        
+    winners_count = int(args[1])
+    try:
+        duration_hours = float(args[2])
+    except ValueError:
+        await message.answer("⚠️ Podaj poprawną liczbę godzin (np. `12` lub `2.5`).", parse_mode="Markdown")
+        return
+
+    if not (1 <= winners_count <= 50):
+        await message.answer("⚠️ Liczba wygranych musi być w zakresie od 1 do 50.")
+        return
+
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
+    pool_amount = cursor.fetchone()[0]
+    
+    cursor.execute("DELETE FROM giveaway_participants")
+    conn.commit()
+    conn.close()
+
+    ends_at = datetime.now() + timedelta(hours=duration_hours)
+    ends_at_str = ends_at.isoformat()
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎉 DOŁĄCZ DO GIVEAWAYA", callback_data="join_giveaway")]
+    ])
+    
+    hours, remainder = divmod(int(duration_hours * 3600), 3600)
+    minutes = remainder // 60
+    time_str = f"{hours}h {minutes}m"
+
+    text = (
+        "🎁 **WIELKI GIVEAWAY UNDRGROUNDZONE** 🎁\n\n"
+        f"💰 **Aktualna pula nagród:** `${pool_amount:.2f} USD`\n"
+        f"🏆 **Liczba zwycięzców:** `{winners_count}` (nagroda dzielona równo)\n"
+        f"👥 **Uczestnicy:** `0` osób\n"
+        f"⏳ **Koniec za:** `{time_str}`\n\n"
+        "Kliknij przycisk poniżej, aby wziąć udział! (Więcej biletów z zakupów i poleceń = większa szansa)"
+    )
+
+    sent_msg = await bot.send_message(
+        chat_id=CHAT_ID,
+        message_thread_id=TOPIC_ID,
+        text=text,
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO active_giveaways (message_id, winners_count, ends_at, status) VALUES (?, ?, ?, 'active')", (sent_msg.message_id, winners_count, ends_at_str))
+    conn.commit()
+    conn.close()
+
+    # Uruchomienie automatycznego timera odliczającego czas trwania giveawayu
+    asyncio.create_task(giveaway_timer_task(bot, sent_msg.message_id, duration_hours, winners_count))
+
+    await message.answer(f"✅ Giveaway został pomyślnie uruchomiony na {duration_hours}h!")
+
+@dp.message(Command("endgiveaway"))
+async def cmd_end_giveaway(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Brak uprawnień.")
+        return
+
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT message_id, winners_count FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
+    active_gw = cursor.fetchone()
+    conn.close()
+
+    if not active_gw:
+        await message.answer("⚠️ Brak aktywnego giveawayu do rozstrzygnięcia.")
+        return
+
+    msg_id, winners_count = active_gw
+    await finish_giveaway_automatically(bot, msg_id, winners_count)
+    await message.answer("✅ Giveaway został przedwcześnie zakończony, a zwycięzcy wylosowani!")
+
+@dp.callback_query(lambda c: c.data == "join_giveaway")
+async def process_join_giveaway(callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    get_or_create_user(user_id)
+    
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO giveaway_participants (user_id) VALUES (?)", (user_id,))
+    conn.commit()
+    conn.close()
+
+    await bot.answer_callback_query(callback_query.id, text="✅ Udało się! Bierzesz udział w giveawayu.", show_alert=False)
+    await update_all_active_giveaways(bot)
 
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
@@ -428,6 +705,8 @@ async def member_join(event: ChatMemberUpdated):
 async def main():
     logging.basicConfig(level=logging.INFO)
     await set_bot_commands(bot)
+    # Uruchomienie tła do aktualizowania timerów i liczników co 10 sekund
+    asyncio.create_task(background_ticker(bot))
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
