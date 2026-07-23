@@ -166,7 +166,6 @@ async def cmd_start(message: types.Message):
                     logging.error(f"CryptoPay error: {e}")
                 return
         
-        # Obsługa starego i nowego formatu payloadu z przycisków sklepiku
         clean_payload = payload.replace("buy_", "")
         if clean_payload in TIERS:
             bot_username = (await bot.get_me()).username
