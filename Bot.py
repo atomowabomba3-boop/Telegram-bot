@@ -3,10 +3,11 @@ import logging
 import sqlite3
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, ChatMemberUpdated
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
-CHANNEL_ID = "@undergroundzon" # Twój kanał
+CHANNEL_ID = "@undergroundzon"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -21,7 +22,6 @@ def init_db():
             invited_by INTEGER
         )
     """)
-    # Tabela do śledzenia unikalnych linków zaproszeniowych tworzonych dla użytkowników
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS invite_links (
             invite_link TEXT PRIMARY KEY,
@@ -93,14 +93,12 @@ async def cmd_ref(message: types.Message):
     get_or_create_user(user_id)
     
     try:
-        # Tworzymy unikalny link zaproszeniowy do kanału dla tego użytkownika (wymaga, by bot był adminem kanału)
         invite = await bot.create_chat_invite_link(
             chat_id=CHANNEL_ID,
             creates_join_request=False
         )
         link = invite.invite_link
         
-        # Zapisujemy w bazie, do kogo należy ten link
         conn = sqlite3.connect("bot_database.db")
         cursor = conn.cursor()
         cursor.execute("INSERT OR REPLACE INTO invite_links (invite_link, user_id) VALUES (?, ?)", (link, user_id))
@@ -116,10 +114,8 @@ async def cmd_ref(message: types.Message):
         await message.answer("⚠️ Error generating link. Make sure the bot is an administrator on the channel.")
         logging.error(f"Invite link error: {e}")
 
-# Automatyczne wykrywanie dołączenia użytkownika do kanału
 @dp.chat_member()
 async def member_join(event: ChatMemberUpdated):
-    # Sprawdzamy, czy użytkownik dołączył do kanału
     if event.chat.username and f"@{event.chat.username.lower()}" == CHANNEL_ID.lower():
         if event.new_chat_member.status == "member" and event.old_chat_member.status in ["left", "kicked"]:
             new_user_id = event.new_chat_member.user.id
@@ -128,7 +124,6 @@ async def member_join(event: ChatMemberUpdated):
             if invite_link_obj and invite_link_obj.invite_link:
                 link_url = invite_link_obj.invite_link
                 
-                # Szukamy w bazie, kto jest właścicielem tego linku zaproszeniowego
                 conn = sqlite3.connect("bot_database.db")
                 cursor = conn.cursor()
                 cursor.execute("SELECT user_id FROM invite_links WHERE invite_link = ?", (link_url,))
@@ -137,20 +132,17 @@ async def member_join(event: ChatMemberUpdated):
                 
                 if row:
                     inviter_id = row[0]
-                    if inviter_id != new_user_id: # Zapobiegamy samopoliczeniu
-                        # Dodajemy punkt osobze zapraszającej
+                    if inviter_id != new_user_id:
                         conn = sqlite3.connect("bot_database.db")
                         cursor = conn.cursor()
                         cursor.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
                         conn.commit()
                         
-                        # Pobieramy aktualny stan losów zapraszającego
                         cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (inviter_id,))
                         res = cursor.fetchone()
                         inviter_tickets = res[0] if res else 0
                         conn.close()
                         
-                        # Wysyłamy powiadomienie na priv do osoby, która zaprosiła
                         try:
                             await bot.send_message(
                                 inviter_id,
@@ -158,9 +150,8 @@ async def member_join(event: ChatMemberUpdated):
                                 f"Your new ticket balance: {inviter_tickets}"
                             )
                         except Exception:
-                            pass # Użytkownik mógł zablokować bota
+                            pass
 
-            # Rejestrujemy nowego użytkownika w bazie (startowy los)
             get_or_create_user(new_user_id)
             try:
                 await bot.send_message(
