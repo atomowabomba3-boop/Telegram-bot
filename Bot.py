@@ -14,7 +14,8 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 3
+TOPIC_ID = 2          # Temat dla giveawayów i wyników
+STORE_TOPIC_ID = 3    # Temat dedykowany tylko na informacje o kupnie e-booków
 
 ADMIN_IDS = [8998575936]
 
@@ -498,7 +499,6 @@ async def process_simulation(message: types.Message, tier_key: str):
     total_tickets = cursor.fetchone()[0]
     conn.close()
     
-    # Usunięto informację o puli nagród z komunikatu symulacji
     await message.answer(
         f"🧪 **[PURCHASE SIMULATION]**\n\n"
         f"✅ Successfully simulated payment for: **{tier_data['name']}**\n"
@@ -716,7 +716,7 @@ async def cmd_post_ebooks(message: types.Message):
             if os.path.exists(data["photo"]):
                 await bot.send_photo(
                     chat_id=CHAT_ID,
-                    message_thread_id=TOPIC_ID,
+                    message_thread_id=STORE_TOPIC_ID,
                     photo=FSInputFile(data["photo"]),
                     caption=caption_text,
                     reply_markup=keyboard,
@@ -725,7 +725,7 @@ async def cmd_post_ebooks(message: types.Message):
             else:
                 await bot.send_message(
                     chat_id=CHAT_ID,
-                    message_thread_id=TOPIC_ID,
+                    message_thread_id=STORE_TOPIC_ID,
                     text=f"⚠️ [Image `{data['photo']}` missing]\n\n" + caption_text,
                     reply_markup=keyboard,
                     parse_mode="Markdown"
@@ -734,7 +734,7 @@ async def cmd_post_ebooks(message: types.Message):
             await message.answer(f"⚠️ Error posting {data['name']}: {e}")
             return
 
-    await message.answer("✅ Store successfully posted to the group topic with individual images!")
+    await message.answer("✅ Store successfully posted to the e-books topic (3) with individual images!")
 
 @dp.chat_member()
 async def member_join(event: ChatMemberUpdated):
