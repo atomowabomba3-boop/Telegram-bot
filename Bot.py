@@ -15,7 +15,7 @@ CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
 TOPIC_ID = 3
 
-ADMIN_IDS = [8998575936]  # Wpisz swoje prawdziwe ID
+ADMIN_IDS = [8998575936]  # Twoje prawdziwe ID
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -76,7 +76,7 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
-            tickets INTEGER DEFAULT 1,
+            tickets INTEGER DEFAULT 0,
             invited_by INTEGER
         )
     """)
@@ -84,6 +84,13 @@ def init_db():
         CREATE TABLE IF NOT EXISTS invite_links (
             invite_link TEXT PRIMARY KEY,
             user_id INTEGER
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS referral_history (
+            inviter_id INTEGER,
+            invited_id INTEGER,
+            PRIMARY KEY (inviter_id, invited_id)
         )
     """)
     cursor.execute("""
@@ -127,9 +134,9 @@ def get_or_create_user(user_id: int, ref_id: int = None):
     row = cursor.fetchone()
     
     if not row:
-        cursor.execute("INSERT INTO users (user_id, tickets, invited_by) VALUES (?, 1, ?)", (user_id, ref_id))
+        cursor.execute("INSERT INTO users (user_id, tickets, invited_by) VALUES (?, 0, ?)", (user_id, ref_id))
         conn.commit()
-        tickets = 1
+        tickets = 0
     else:
         tickets = row[0]
         
@@ -213,6 +220,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     if not participants:
         cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
         cursor.execute("DELETE FROM giveaway_participants")
+        cursor.execute("UPDATE users SET tickets = 0")
         conn.commit()
         conn.close()
         try:
@@ -229,10 +237,11 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     ticket_pool = []
     for uid in participants:
         cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (uid,))
-        user_tickets = cursor.fetchone()[0] if cursor.fetchone() else 1
-        ticket_pool.extend([uid] * max(1, user_tickets))
+        user_tickets = cursor.fetchone()[0] if cursor.fetchone() else 0
+        if user_tickets > 0:
+            ticket_pool.extend([uid] * user_tickets)
 
-    actual_winners_count = min(winners_count, len(set(ticket_pool)))
+    actual_winners_count = min(winners_count, len(set(ticket_pool))) if ticket_pool else 0
     winners = []
     while len(winners) < actual_winners_count and ticket_pool:
         winner = random.choice(ticket_pool)
@@ -244,6 +253,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
     cursor.execute("UPDATE giveaway_pool SET amount = 10.0 WHERE id = 1")
     cursor.execute("DELETE FROM giveaway_participants")
+    cursor.execute("UPDATE users SET tickets = 0")
     conn.commit()
     conn.close()
 
@@ -256,14 +266,14 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         except Exception:
             winners_mentions.append(f"• Użytkownik ID: `{w_id}`")
 
-    winners_text = "\n".join(winners_mentions) if winners_mentions else "Brak zwycięzców"
+    winners_text = "\n".join(winners_mentions) if winners_mentions else "Brak zwycięzców z biletami"
 
     result_text = (
         "🎉 **WYNIKI GIVEAWAYA UNDRGROUNDZONE** 🎉\n\n"
         f"💰 **Rozdana pula:** `${pool_amount:.2f} USD`\n"
         f"🏆 **Nagroda dla każdego z {len(winners)} zwycięzców:** **`${prize_per_winner:.2f} USD`**\n\n"
         f"🔥 **Zwycięzcy:**\n{winners_text}\n\n"
-        "Gratulacje! Pula nagród w boccie została zresetowana."
+        "Gratulacje! Bilety zostały zresetowane, a pula nagród w boccie odnowiona."
     )
 
     try:
@@ -573,7 +583,6 @@ async def cmd_start_giveaway(message: types.Message):
     conn.commit()
     conn.close()
 
-    # Uruchomienie automatycznego timera odliczającego czas trwania giveawayu
     asyncio.create_task(giveaway_timer_task(bot, sent_msg.message_id, duration_hours, winners_count))
 
     await message.answer(f"✅ Giveaway został pomyślnie uruchomiony na {duration_hours}h!")
@@ -670,34 +679,36 @@ async def member_join(event: ChatMemberUpdated):
                 cursor = conn.cursor()
                 cursor.execute("SELECT user_id FROM invite_links WHERE invite_link = ?", (link_url,))
                 row = cursor.fetchone()
-                conn.close()
                 
                 if row:
                     inviter_id = row[0]
                     if inviter_id != new_user_id:
-                        conn = sqlite3.connect("bot_database.db")
-                        cursor = conn.cursor()
-                        cursor.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
-                        conn.commit()
+                        cursor.execute("SELECT 1 FROM referral_history WHERE inviter_id = ? AND invited_id = ?", (inviter_id, new_user_id))
+                        already_referred = cursor.fetchone()
                         
-                        cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (inviter_id,))
-                        inviter_tickets = cursor.fetchone()[0]
-                        conn.close()
-                        
-                        try:
-                            await bot.send_message(
-                                inviter_id,
-                                f"🎉 Someone joined the group using your invite link!\n"
-                                f"Your new ticket balance: {inviter_tickets}"
-                            )
-                        except Exception:
-                            pass
+                        if not already_referred:
+                            cursor.execute("INSERT INTO referral_history (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, new_user_id))
+                            cursor.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
+                            conn.commit()
+                            
+                            cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (inviter_id,))
+                            inviter_tickets = cursor.fetchone()[0]
+                            
+                            try:
+                                await bot.send_message(
+                                    inviter_id,
+                                    f"🎉 Ktoś dołączył do grupy za pomocą Twojego linku zaproszenia!\n"
+                                    f"Twój nowy stan biletów: {inviter_tickets}"
+                                )
+                            except Exception:
+                                pass
+                conn.close()
 
             get_or_create_user(new_user_id)
             try:
                 await bot.send_message(
                     new_user_id,
-                    "👋 Welcome to the group! You have received your starting ticket."
+                    "👋 Witaj w grupie!"
                 )
             except Exception:
                 pass
@@ -705,9 +716,8 @@ async def member_join(event: ChatMemberUpdated):
 async def main():
     logging.basicConfig(level=logging.INFO)
     await set_bot_commands(bot)
-    # Uruchomienie tła do aktualizowania timerów i liczników co 10 sekund
     asyncio.create_task(background_ticker(bot))
-    await dp.start_polling(bot)
+    asyncio.run(dp.start_polling(bot))
 
 if __name__ == "__main__":
     asyncio.run(main())
