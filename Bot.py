@@ -278,19 +278,11 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     )
 
     try:
-        await bot.edit_message_text(
-            chat_id=CHAT_ID,
-            message_id=msg_id,
-            text=result_text,
-            parse_mode="Markdown"
-        )
+        await bot.delete_message(chat_id=CHAT_ID, message_id=msg_id)
     except Exception:
-        # Usuwamy wiadomość z licznikiem, żeby zniknęła po zakończeniu, i wysyłamy wyniki jako nową wiadomość
-        try:
-            await bot.delete_message(chat_id=CHAT_ID, message_id=msg_id)
-        except Exception:
-            pass
-        await bot.send_message(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, text=result_text, parse_mode="Markdown")
+        pass
+        
+    await bot.send_message(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, text=result_text, parse_mode="Markdown")
 
 async def giveaway_timer_task(bot: Bot, msg_id: int, duration_hours: float, winners_count: int):
     await asyncio.sleep(duration_hours * 3600)
@@ -700,11 +692,7 @@ async def member_join(event: ChatMemberUpdated):
                             cursor_db.execute("SELECT status FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
                             active_gw = cursor_db.fetchone()
                             
-                            if active_gw:
-                                cursor_db.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
-                            else:
-                                cursor_db.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
-                            
+                            cursor_db.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
                             conn_db.commit()
                             
                             cursor_db.execute("SELECT tickets FROM users WHERE user_id = ?", (inviter_id,))
