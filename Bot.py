@@ -4,6 +4,7 @@ import sqlite3
 import os
 import random
 import aiohttp
+from aiohttp import web
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
@@ -46,6 +47,18 @@ TIERS = {
         "payload": "buy_tier3"
     }
 }
+
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
 
 async def create_crypto_invoice(amount: float, asset: str, description: str, payload: str):
     url = "https://pay.crypt.bot/api/createInvoice"
@@ -748,6 +761,10 @@ async def member_join(event: ChatMemberUpdated):
 async def main():
     print("URUCHAMIAM BOTA...")
     logging.basicConfig(level=logging.INFO)
+    
+    # Uruchomienie lokalnego serwera HTTP dla Railway, żeby kontener się nie ubijał
+    await start_web_server()
+    
     await set_bot_commands(bot)
     asyncio.create_task(background_ticker(bot))
     await dp.start_polling(bot)
