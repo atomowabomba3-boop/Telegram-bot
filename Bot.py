@@ -142,9 +142,9 @@ async def cmd_ebooks(message: types.Message):
 
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
-    photo_green = "ebook_green.png"
-    photo_blue = "ebook_blue.png"
-    photo_purple = "ebook_purple.png"
+    photo_green = "ebook_green.png.jpg"
+    photo_blue = "ebook_blue.png.jpg"
+    photo_purple = "ebook_purple.png.jpg"
 
     caption_1 = (
         "🟢 **Underground Start (Pakiet Podstawowy)**\n"
@@ -235,3 +235,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
