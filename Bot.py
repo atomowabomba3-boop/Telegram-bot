@@ -71,8 +71,9 @@ async def create_crypto_invoice(amount: float, asset: str, description: str, pay
                 raise Exception("Failed to create invoice via CryptoBot")
 
 def init_db():
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -103,11 +104,11 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS giveaway_pool (
             id INTEGER PRIMARY KEY CHECK (id = 1),
-            amount REAL DEFAULT 30.0
+            amount REAL DEFAULT 0.0
         )
     """)
     cursor.execute("""
-        INSERT OR IGNORE INTO giveaway_pool (id, amount) VALUES (1, 30.0)
+        INSERT OR IGNORE INTO giveaway_pool (id, amount) VALUES (1, 0.0)
     """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS giveaway_participants (
@@ -128,16 +129,16 @@ def init_db():
 init_db()
 
 def get_display_pool(raw_amount: float) -> float:
-    return raw_amount if raw_amount > 30.0 else 30.0
+    return raw_amount if raw_amount >= 30.0 else 30.0
 
 def get_or_create_user(user_id: int, ref_id: int = None):
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
     
     if not row:
-        cursor.execute("INSERT INTO users (user_id, tickets, invited_by) VALUES (?, 1, ?)", (user_id, ref_id))
+        cursor.execute("INSERT OR IGNORE INTO users (user_id, tickets, invited_by) VALUES (?, 1, ?)", (user_id, ref_id))
         conn.commit()
         tickets = 1
     else:
@@ -147,7 +148,7 @@ def get_or_create_user(user_id: int, ref_id: int = None):
     return tickets
 
 def add_to_giveaway_pool(price: float):
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     added_amount = price * 0.8
     cursor.execute("UPDATE giveaway_pool SET amount = amount + ? WHERE id = 1", (added_amount,))
@@ -158,7 +159,7 @@ def add_to_giveaway_pool(price: float):
     return current_pool
 
 async def update_all_active_giveaways(bot: Bot):
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
     raw_pool_amount = cursor.fetchone()[0]
@@ -206,7 +207,7 @@ async def update_all_active_giveaways(bot: Bot):
             pass
 
 async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: int):
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT status FROM active_giveaways WHERE message_id = ?", (msg_id,))
     row = cursor.fetchone()
@@ -256,7 +257,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     prize_per_winner = pool_amount / len(winners) if winners else 0
 
     cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
-    cursor.execute("UPDATE giveaway_pool SET amount = 30.0 WHERE id = 1")
+    cursor.execute("UPDATE giveaway_pool SET amount = 0.0 WHERE id = 1")
     cursor.execute("DELETE FROM giveaway_participants")
     cursor.execute("UPDATE users SET tickets = 1")
     
@@ -410,7 +411,7 @@ async def cmd_ref(message: types.Message):
             new_invite = await bot.export_chat_invite_link(chat_id=CHAT_ID)
             link = new_invite
         
-        conn = sqlite3.connect("bot_database.db")
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
         cursor = conn.cursor()
         cursor.execute("INSERT OR REPLACE INTO invite_links (invite_link, user_id) VALUES (?, ?)", (link, user_id))
         conn.commit()
@@ -428,7 +429,7 @@ async def cmd_ref(message: types.Message):
 @dp.message(Command("ebooks"))
 async def cmd_ebooks(message: types.Message):
     user_id = message.from_user.id
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT ebook_name FROM user_ebooks WHERE user_id = ?", (user_id,))
     ebooks = cursor.fetchall()
@@ -468,7 +469,7 @@ async def process_simulation(message: types.Message, tier_key: str):
         
     tier_data = TIERS[tier_key]
     
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (tier_data["tickets"], user_id))
     cursor.execute("INSERT INTO user_ebooks (user_id, ebook_name) VALUES (?, ?)", (user_id, tier_data["name"]))
@@ -479,7 +480,7 @@ async def process_simulation(message: types.Message, tier_key: str):
     new_pool = get_display_pool(new_raw_pool)
     await update_all_active_giveaways(bot)
     
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
     total_tickets = cursor.fetchone()[0]
@@ -543,7 +544,7 @@ async def cmd_start_giveaway(message: types.Message):
         await message.answer("⚠️ Winners count must be between 1 and 50.")
         return
 
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
     raw_pool_amount = cursor.fetchone()[0]
@@ -581,7 +582,7 @@ async def cmd_start_giveaway(message: types.Message):
         parse_mode="Markdown"
     )
 
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("INSERT OR REPLACE INTO active_giveaways (message_id, winners_count, ends_at, status) VALUES (?, ?, ?, 'active')", (sent_msg.message_id, winners_count, ends_at_str))
     conn.commit()
@@ -597,7 +598,7 @@ async def cmd_end_giveaway(message: types.Message):
         await message.answer("⚠️ Unauthorized.")
         return
 
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT message_id, winners_count FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
     active_gw = cursor.fetchone()
@@ -616,7 +617,7 @@ async def process_join_giveaway(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     get_or_create_user(user_id)
     
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     
     cursor.execute("SELECT 1 FROM giveaway_participants WHERE user_id = ?", (user_id,))
@@ -631,8 +632,18 @@ async def process_join_giveaway(callback_query: CallbackQuery):
         )
         return
 
-    cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (user_id,))
-    conn.commit()
+    try:
+        cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (user_id,))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        await bot.answer_callback_query(
+            callback_query.id, 
+            text="⚠️ You have already joined this giveaway!", 
+            show_alert=True
+        )
+        return
+
     conn.close()
 
     await bot.answer_callback_query(callback_query.id, text="✅ Success! You joined the giveaway.", show_alert=False)
@@ -692,7 +703,7 @@ async def member_join(event: ChatMemberUpdated):
             if invite_link_obj and invite_link_obj.invite_link:
                 link_url = invite_link_obj.invite_link
                 
-                conn = sqlite3.connect("db_referrals.db")
+                conn = sqlite3.connect("db_referrals.db", timeout=30.0)
                 cursor = conn.cursor()
                 cursor.execute("SELECT user_id FROM invite_links WHERE invite_link = ?", (link_url,))
                 row = cursor.fetchone()
@@ -700,7 +711,7 @@ async def member_join(event: ChatMemberUpdated):
                 if row:
                     inviter_id = row[0]
                     if inviter_id != new_user_id:
-                        conn_db = sqlite3.connect("bot_database.db")
+                        conn_db = sqlite3.connect("bot_database.db", timeout=30.0)
                         cursor_db = conn_db.cursor()
                         cursor_db.execute("SELECT 1 FROM referral_history WHERE inviter_id = ? AND invited_id = ?", (inviter_id, new_user_id))
                         already_referred = cursor_db.fetchone()
@@ -729,7 +740,7 @@ async def member_join(event: ChatMemberUpdated):
             try:
                 await bot.send_message(
                     new_user_id,
-                    "👋 Welcome to the group! You have received your base 1 ticket."
+                    "👋 Welcome to the group! You have received your base 1 token."
                 )
             except Exception:
                 pass
@@ -740,5 +751,5 @@ async def main():
     asyncio.create_task(background_ticker(bot))
     await dp.start_polling(bot)
 
-if __name__ == "__main__":
+if __name__ == "main":
     asyncio.run(main())
