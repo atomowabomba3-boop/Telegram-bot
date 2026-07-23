@@ -76,7 +76,7 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
-            tickets INTEGER DEFAULT 0,
+            tickets INTEGER DEFAULT 1,
             invited_by INTEGER
         )
     """)
@@ -127,6 +127,11 @@ def init_db():
 
 init_db()
 
+def get_display_pool(raw_amount: float) -> float:
+    # Jeśli pula w bazie jest mniejsza lub równa 30.0, wyświetlamy równe 30.0. 
+    # Dopiero gdy przekroczy 30.0, wyświetlamy faktyczną wyższą kwotę.
+    return raw_amount if raw_amount > 30.0 else 30.0
+
 def get_or_create_user(user_id: int, ref_id: int = None):
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
@@ -134,9 +139,9 @@ def get_or_create_user(user_id: int, ref_id: int = None):
     row = cursor.fetchone()
     
     if not row:
-        cursor.execute("INSERT INTO users (user_id, tickets, invited_by) VALUES (?, 0, ?)", (user_id, ref_id))
+        cursor.execute("INSERT INTO users (user_id, tickets, invited_by) VALUES (?, 1, ?)", (user_id, ref_id))
         conn.commit()
-        tickets = 0
+        tickets = 1
     else:
         tickets = row[0]
         
@@ -158,7 +163,8 @@ async def update_all_active_giveaways(bot: Bot):
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
     cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
-    pool_amount = cursor.fetchone()[0]
+    raw_pool_amount = cursor.fetchone()[0]
+    pool_amount = get_display_pool(raw_pool_amount)
     
     cursor.execute("SELECT COUNT(*) FROM giveaway_participants")
     participants_count = cursor.fetchone()[0]
@@ -188,7 +194,7 @@ async def update_all_active_giveaways(bot: Bot):
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `{participants_count}` people\n"
             f"⏳ **Ends in:** `{time_left}`\n\n"
-            "Click the button below to participate! (More tickets from purchases & referrals = higher chance)"
+            "Click the button below to participate!"
         )
         try:
             await bot.edit_message_text(
@@ -212,7 +218,8 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         return
 
     cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
-    pool_amount = cursor.fetchone()[0]
+    raw_pool_amount = cursor.fetchone()[0]
+    pool_amount = get_display_pool(raw_pool_amount)
 
     cursor.execute("SELECT user_id FROM giveaway_participants")
     participants = [row[0] for row in cursor.fetchall()]
@@ -220,7 +227,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     if not participants:
         cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
         cursor.execute("DELETE FROM giveaway_participants")
-        cursor.execute("UPDATE users SET tickets = 0")
+        cursor.execute("UPDATE users SET tickets = 1")
         conn.commit()
         conn.close()
         try:
@@ -238,9 +245,8 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     for uid in participants:
         cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (uid,))
         res = cursor.fetchone()
-        user_tickets = res[0] if res else 0
-        if user_tickets > 0:
-            ticket_pool.extend([uid] * user_tickets)
+        user_tickets = res[0] if res else 1
+        ticket_pool.extend([uid] * user_tickets)
 
     actual_winners_count = min(winners_count, len(set(ticket_pool))) if ticket_pool else 0
     winners = []
@@ -254,7 +260,8 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
     cursor.execute("UPDATE giveaway_pool SET amount = 30.0 WHERE id = 1")
     cursor.execute("DELETE FROM giveaway_participants")
-    cursor.execute("UPDATE users SET tickets = 0")
+    cursor.execute("UPDATE users SET tickets = 1")
+    
     conn.commit()
     conn.close()
 
@@ -267,14 +274,14 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         except Exception:
             winners_mentions.append(f"• User ID: `{w_id}`")
 
-    winners_text = "\n".join(winners_mentions) if winners_mentions else "No winners with tickets"
+    winners_text = "\n".join(winners_mentions) if winners_mentions else "No winners"
 
     result_text = (
         "🎉 **UNDRGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n"
         f"💰 **Total Distributed Pool:** `${pool_amount:.2f} USD`\n"
         f"🏆 **Prize for each of the {len(winners)} winners:** **`${prize_per_winner:.2f} USD`**\n\n"
         f"🔥 **Winners:**\n{winners_text}\n\n"
-        "Congratulations! Tickets have been reset and the bot prize pool has been restored."
+        "Congratulations! Giveaway finished, extra tickets reset, base tickets kept."
     )
 
     try:
@@ -333,7 +340,7 @@ async def cmd_start(message: types.Message):
                     
                     await message.answer(
                         f"🛒 **Generating payment for {tier_data['name']}**\n\n"
-                        f"🎟 **Included:** {tier_data['tickets']} tickets\n"
+                        f"🎟 **Included boost:** {tier_data['tickets']} tickets\n"
                         f"💰 **Amount:** ${tier_data['price']} USD (equivalent in {asset})\n\n"
                         "Click the button below to complete your payment:",
                         reply_markup=pay_keyboard,
@@ -370,8 +377,7 @@ async def cmd_start(message: types.Message):
     tickets = get_or_create_user(user_id)
     welcome_text = (
         "👋 Welcome to the Undrgroundzone System!\n\n"
-        "Here you can check your tickets, invite link, and claim your e-books.\n\n"
-        f"Your ticket balance: {tickets}\n\n"
+        f"Your current ticket balance: {tickets}\n\n"
         "Use /help to see available commands."
     )
     await message.answer(welcome_text)
@@ -380,8 +386,8 @@ async def cmd_start(message: types.Message):
 async def cmd_help(message: types.Message):
     help_text = (
         "🤖 **Available Commands:**\n\n"
-        "📊 /tickets - Check your ticket balance\n"
-        "🔗 /ref - Get your permanent invite link\n"
+        "📊 /tickets - Check your tickets\n"
+        "🔗 /ref - Get your invite link\n"
         "📚 /ebooks - View and download your purchased e-books\n"
         "❓ /help - Show help"
     )
@@ -391,7 +397,7 @@ async def cmd_help(message: types.Message):
 async def cmd_tickets(message: types.Message):
     user_id = message.from_user.id
     tickets = get_or_create_user(user_id)
-    await message.answer(f"Your current ticket balance:\n- Total tickets: {tickets}")
+    await message.answer(f"Your current ticket balance: {tickets}")
 
 @dp.message(Command("ref"))
 async def cmd_ref(message: types.Message):
@@ -414,7 +420,7 @@ async def cmd_ref(message: types.Message):
         
         await message.answer(
             f"🔗 **Your permanent invite link:**\n{link}\n\n"
-            "Share this link with your friends! When someone joins using it, you will automatically receive a ticket.",
+            "Share this link with your friends! When someone joins using it, you get +1 ticket boost.",
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -471,7 +477,8 @@ async def process_simulation(message: types.Message, tier_key: str):
     conn.commit()
     conn.close()
     
-    new_pool = add_to_giveaway_pool(tier_data["price"])
+    new_raw_pool = add_to_giveaway_pool(tier_data["price"])
+    new_pool = get_display_pool(new_raw_pool)
     await update_all_active_giveaways(bot)
     
     conn = sqlite3.connect("bot_database.db")
@@ -483,9 +490,9 @@ async def process_simulation(message: types.Message, tier_key: str):
     await message.answer(
         f"🧪 **[PURCHASE SIMULATION]**\n\n"
         f"✅ Successfully simulated payment for: **{tier_data['name']}**\n"
-        f"🎟 Added tickets: **+{tier_data['tickets']}**\n"
-        f"📊 Your new ticket balance: **{total_tickets}**\n"
-        f"💰 New giveaway pool: **${new_pool:.2f} USD**",
+        f"🎟 Boost tickets added: **+{tier_data['tickets']}**\n"
+        f"📊 Your total ticket balance: **{total_tickets}**\n"
+        f"💰 New display giveaway pool: **${new_pool:.2f} USD**",
         parse_mode="Markdown"
     )
     
@@ -541,7 +548,8 @@ async def cmd_start_giveaway(message: types.Message):
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
     cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
-    pool_amount = cursor.fetchone()[0]
+    raw_pool_amount = cursor.fetchone()[0]
+    pool_amount = get_display_pool(raw_pool_amount)
     
     cursor.execute("DELETE FROM giveaway_participants")
     conn.commit()
@@ -564,7 +572,7 @@ async def cmd_start_giveaway(message: types.Message):
         f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
         f"👥 **Participants:** `0` people\n"
         f"⏳ **Ends in:** `{time_str}`\n\n"
-        "Click the button below to participate! (More tickets from purchases & referrals = higher chance)"
+        "Click the button below to participate!"
     )
 
     sent_msg = await bot.send_message(
@@ -616,7 +624,7 @@ async def process_join_giveaway(callback_query: CallbackQuery):
     conn.commit()
     conn.close()
 
-    await bot.answer_callback_query(callback_query.id, text="✅ Success! You are participating in the giveaway.", show_alert=False)
+    await bot.answer_callback_query(callback_query.id, text="✅ Success! You joined the giveaway.", show_alert=False)
     await update_all_active_giveaways(bot)
 
 @dp.message(Command("post_ebooks"))
@@ -688,10 +696,6 @@ async def member_join(event: ChatMemberUpdated):
                         
                         if not already_referred:
                             cursor_db.execute("INSERT INTO referral_history (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, new_user_id))
-                            
-                            cursor_db.execute("SELECT status FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
-                            active_gw = cursor_db.fetchone()
-                            
                             cursor_db.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
                             conn_db.commit()
                             
@@ -700,18 +704,12 @@ async def member_join(event: ChatMemberUpdated):
                             conn_db.close()
                             
                             try:
-                                if active_gw:
-                                    msg = (
-                                        f"🎉 Someone joined the group using your invite link!\n"
-                                        f"You received +1 ticket for the currently active giveaway.\n"
-                                        f"Your ticket balance: {inviter_tickets}"
-                                    )
-                                else:
-                                    msg = (
-                                        f"🎉 Someone joined the group using your invite link!\n"
-                                        f"There is currently no active giveaway, so your ticket (balance: {inviter_tickets}) will be saved and automatically included in the next new giveaway!"
-                                    )
-                                await bot.send_message(inviter_id, msg)
+                                await bot.send_message(
+                                    inviter_id,
+                                    f"🎉 Someone joined the group using your invite link!\n"
+                                    f"You received +1 ticket boost for the giveaway.\n"
+                                    f"Your total ticket balance: {inviter_tickets}"
+                                )
                             except Exception:
                                 pass
                 conn.close()
@@ -720,7 +718,7 @@ async def member_join(event: ChatMemberUpdated):
             try:
                 await bot.send_message(
                     new_user_id,
-                    "👋 Welcome to the group!"
+                    "👋 Welcome to the group! You have received your base 1 ticket."
                 )
             except Exception:
                 pass
