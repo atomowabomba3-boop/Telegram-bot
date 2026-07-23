@@ -15,7 +15,7 @@ CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
 TOPIC_ID = 3
 
-ADMIN_IDS = [8998575936]  # Twoje prawdziwe ID
+ADMIN_IDS = [8998575936]
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -146,7 +146,7 @@ def get_or_create_user(user_id: int, ref_id: int = None):
 def add_to_giveaway_pool(price: float):
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
-    added_amount = price * 0.8  # 80% do puli
+    added_amount = price * 0.8
     cursor.execute("UPDATE giveaway_pool SET amount = amount + ? WHERE id = 1", (added_amount,))
     conn.commit()
     cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
@@ -717,7 +717,7 @@ async def main():
     logging.basicConfig(level=logging.INFO)
     await set_bot_commands(bot)
     asyncio.create_task(background_ticker(bot))
-    asyncio.run(dp.start_polling(bot))
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
