@@ -10,13 +10,13 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 3
+TOPIC_ID = 2
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 async def create_crypto_invoice(amount: float, asset: str, description: str, payload: str):
-    """Directly communicates with CryptoBot HTTP API to bypass package version conflicts."""
+    """Directly communicates with CryptoBot HTTP API supporting multiple assets (USDT, BTC, ETH, etc.)."""
     url = "https://pay.crypt.bot/api/createInvoice"
     headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
     data = {
@@ -88,6 +88,7 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="ref", description="Get your invite link"),
         BotCommand(command="ebooks", description="Your purchased e-books"),
         BotCommand(command="post_ebooks", description="Post store to group topic"),
+        BotCommand(command="sim_pay", description="Simulate a successful purchase"),
         BotCommand(command="help", description="Show help"),
     ]
     await bot.set_my_commands(commands)
@@ -98,38 +99,63 @@ async def cmd_start(message: types.Message):
     args = message.text.split()
     
     if len(args) > 1:
-        payload = args[1]
-        tiers = {
-            "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50},
-            "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200},
-            "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0, "tickets": 500}
-        }
+        payload = args[1] # Format expected: buy_tier1_USDT, buy_tier1_BTC, buy_tier1_ETH
+        parts = payload.split("_")
         
-        if payload in tiers:
-            tier_data = tiers[payload]
-            try:
-                invoice_url = await create_crypto_invoice(
-                    amount=tier_data["price"],
-                    asset="USDT",
-                    description=f"Purchase: {tier_data['name']} + {tier_data['tickets']} tickets in Undrgroundzone",
-                    payload=payload
-                )
-                
-                pay_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="💳 PAY WITH CRYPTO", url=invoice_url)]
-                ])
-                
-                await message.answer(
-                    f"🛒 **Generating payment for {tier_data['name']}**\n\n"
-                    f"🎟 **Included:** {tier_data['tickets']} tickets\n"
-                    f"💰 **Amount:** ${tier_data['price']} USDT\n\n"
-                    "Click the button below to proceed to the secure CryptoBot payment gateway:",
-                    reply_markup=pay_keyboard,
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                await message.answer("⚠️ An error occurred while generating payment. Please try again later.")
-                logging.error(f"CryptoPay error: {e}")
+        if len(parts) == 3:
+            tier_key, asset = f"{parts[0]}_{parts[1]}", parts[2].upper()
+            tiers = {
+                "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50},
+                "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200},
+                "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0, "tickets": 500}
+            }
+            
+            if tier_key in tiers:
+                tier_data = tiers[tier_key]
+                try:
+                    invoice_url = await create_crypto_invoice(
+                        amount=tier_data["price"],
+                        asset=asset,
+                        description=f"Purchase: {tier_data['name']} + {tier_data['tickets']} tickets in Undrgroundzone",
+                        payload=payload
+                    )
+                    
+                    pay_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text=f"💳 PAY WITH {asset}", url=invoice_url)]
+                    ])
+                    
+                    await message.answer(
+                        f"🛒 **Generating payment for {tier_data['name']}**\n\n"
+                        f"🎟 **Included:** {tier_data['tickets']} tickets\n"
+                        f"💰 **Amount:** ${tier_data['price']} USD equivalent in {asset}\n\n"
+                        "Click the button below to complete your payment:",
+                        reply_markup=pay_keyboard,
+                        parse_mode="Markdown"
+                    )
+                except Exception as e:
+                    await message.answer("⚠️ An error occurred while generating payment. Please try again later.")
+                    logging.error(f"CryptoPay error: {e}")
+                return
+        
+        # If user clicked a tier button directly without asset choice, show asset selection menu
+        base_tiers = {
+            "buy_tier1": "Ebook Tier 1 ($2)",
+            "buy_tier2": "Ebook Tier 2 ($5)",
+            "buy_tier3": "Ebook Tier 3 ($10)"
+        }
+        if payload in base_tiers:
+            select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="USDT", url=f"https://t.me/{message.bot.username}?start={payload}_USDT"),
+                    InlineKeyboardButton(text="BTC", url=f"https://t.me/{message.bot.username}?start={payload}_BTC"),
+                    InlineKeyboardButton(text="ETH", url=f"https://t.me/{message.bot.username}?start={payload}_ETH")
+                ]
+            ])
+            await message.answer(
+                f"💱 **Choose cryptocurrency for {base_tiers[payload]}:**",
+                reply_markup=select_keyboard,
+                parse_mode="Markdown"
+            )
             return
 
     tickets = get_or_create_user(user_id)
@@ -149,6 +175,7 @@ async def cmd_help(message: types.Message):
         "🔗 /ref - Get your invite link\n"
         "📚 /ebooks - View your purchased e-books\n"
         "🛒 /post_ebooks - Post store to group topic\n"
+        "🧪 /sim_pay - Simulate a test purchase\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
@@ -201,13 +228,38 @@ async def cmd_ebooks(message: types.Message):
         ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
         await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}", parse_mode="Markdown")
 
+@dp.message(Command("sim_pay"))
+async def cmd_sim_pay(message: types.Message):
+    user_id = message.from_user.id
+    tier_name = "Ebook Tier 3"
+    added_tickets = 500
+    
+    conn = sqlite3.connect("bot_database.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (added_tickets, user_id))
+    cursor.execute("INSERT INTO user_ebooks (user_id, ebook_name) VALUES (?, ?)", (user_id, tier_name))
+    conn.commit()
+    
+    cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    total_tickets = row[0] if row else added_tickets
+    conn.close()
+    
+    await message.answer(
+        f"🧪 **[PURCHASE SIMULATION]**\n\n"
+        f"✅ Successfully simulated payment for: **{tier_name}**\n"
+        f"🎟 Added tickets: **+{added_tickets}**\n"
+        f"📊 Your new ticket balance: **{total_tickets}**\n\n"
+        f"Check /ebooks and /tickets commands!",
+        parse_mode="Markdown"
+    )
+
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
     photo_green = "ebook_green.png.jpg"
     photo_blue = "ebook_blue.png.jpg"
     photo_purple = "ebook_purple.png.jpg"
 
-    # Pobieramy nazwę bota dynamicznie, aby uniknąć błędów z linkami
     bot_info = await bot.get_me()
     bot_username = bot_info.username
 
