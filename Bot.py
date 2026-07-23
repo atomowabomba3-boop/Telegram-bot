@@ -6,7 +6,7 @@ import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, InputMediaPhoto
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
@@ -16,14 +16,29 @@ TOPIC_ID = 2
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# Definicje produktów wraz z plikami do wysłania po zakupie
+# Definicje wyłącznie paczek (Tierów) z przypisanymi obrazkami i plikami
 TIERS = {
-    "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50, "file": "ebook_1.pdf"},
-    "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200, "file": "ebook_2.pdf"},
-    "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0, "tickets": 500, "file": "ebook_3.pdf"},
-    "buy_ebook1": {"name": "Single Ebook #1", "price": 1.5, "tickets": 20, "file": "single_1.pdf"},
-    "buy_ebook2": {"name": "Single Ebook #2", "price": 1.5, "tickets": 20, "file": "single_2.pdf"},
-    "buy_ebook3": {"name": "Single Ebook #3", "price": 3.0, "tickets": 75, "file": "single_3.pdf"}
+    "buy_tier1": {
+        "name": "Ebook Tier 1", 
+        "price": 2.0, 
+        "tickets": 50, 
+        "file": "ebook_1.pdf",
+        "photo": "tier1.jpg"
+    },
+    "buy_tier2": {
+        "name": "Ebook Tier 2", 
+        "price": 5.0, 
+        "tickets": 200, 
+        "file": "ebook_2.pdf",
+        "photo": "tier2.jpg"
+    },
+    "buy_tier3": {
+        "name": "Ebook Tier 3", 
+        "price": 10.0, 
+        "tickets": 500, 
+        "file": "ebook_3.pdf",
+        "photo": "tier3.jpg"
+    }
 }
 
 async def create_crypto_invoice(amount: float, asset: str, description: str, payload: str):
@@ -114,6 +129,7 @@ async def cmd_start(message: types.Message):
         payload = args[1]
         parts = payload.split("_")
         
+        # Krok 2: Wygenerowanie linku do płatności CryptoBot po wybraniu waluty (np. buy_tier1_USDT)
         if len(parts) == 3:
             tier_key = f"{parts[0]}_{parts[1]}"
             asset = parts[2].upper()
@@ -145,6 +161,7 @@ async def cmd_start(message: types.Message):
                     logging.error(f"CryptoPay error: {e}")
                 return
         
+        # Krok 1: Wybór waluty dla wybranego tieru ze zdjęcia
         if payload in TIERS:
             bot_username = (await bot.get_me()).username
             select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -270,27 +287,41 @@ async def cmd_sim_pay(message: types.Message):
 async def cmd_post_ebooks(message: types.Message):
     bot_username = (await bot.get_me()).username
 
-    # Jeśli masz zdjęcia, wrzuć je do folderu bota. Jeśli nie, bot wyśle czysty komunikat z przyciskami.
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🟢 Ebook Tier 1 ($2)", url=f"https://t.me/{bot_username}?start=buy_tier1")],
-        [InlineKeyboardButton(text="🔵 Ebook Tier 2 ($5)", url=f"https://t.me/{bot_username}?start=buy_tier2")],
-        [InlineKeyboardButton(text="🟣 Ebook Tier 3 ($10)", url=f"https://t.me/{bot_username}?start=buy_tier3")],
-        [InlineKeyboardButton(text="📖 Single Ebook #1 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook1")],
-        [InlineKeyboardButton(text="📖 Single Ebook #2 ($1.5)", url=f"https://t.me/{bot_username}?start=buy_ebook2")],
-        [InlineKeyboardButton(text="📖 Single Ebook #3 ($3)", url=f"https://t.me/{bot_username}?start=buy_ebook3")]
-    ])
-
-    try:
-        await bot.send_message(
-            chat_id=CHAT_ID,
-            message_thread_id=TOPIC_ID,
-            text="📚 **Undrgroundzone E-book Store**\n\nChoose a package or single e-book below:",
-            reply_markup=keyboard,
-            parse_mode="Markdown"
+    for tier_key, data in TIERS.items():
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"🛒 BUY {data['name'].upper()} (${data['price']})", url=f"https://t.me/{bot_username}?start={tier_key}")]
+        ])
+        
+        caption_text = (
+            f"📚 **{data['name']}**\n\n"
+            f"💰 Price: **${data['price']} USD**\n"
+            f"🎟 Tickets included: **{data['tickets']}**\n\n"
+            "Click the button below to purchase:"
         )
-        await message.answer("✅ Store successfully posted to the group topic!")
-    except Exception as e:
-        await message.answer(f"⚠️ Error posting store: {e}")
+
+        try:
+            if os.path.exists(data["photo"]):
+                await bot.send_photo(
+                    chat_id=CHAT_ID,
+                    message_thread_id=TOPIC_ID,
+                    photo=FSInputFile(data["photo"]),
+                    caption=caption_text,
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
+            else:
+                await bot.send_message(
+                    chat_id=CHAT_ID,
+                    message_thread_id=TOPIC_ID,
+                    text=f"⚠️ [Image `{data['photo']}` missing]\n\n" + caption_text,
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
+        except Exception as e:
+            await message.answer(f"⚠️ Error posting {data['name']}: {e}")
+            return
+
+    await message.answer("✅ Store successfully posted to the group topic with individual images!")
 
 @dp.chat_member()
 async def member_join(event: ChatMemberUpdated):
@@ -345,4 +376,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
