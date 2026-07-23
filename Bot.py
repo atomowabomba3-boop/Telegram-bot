@@ -1,22 +1,22 @@
 import asyncio
 import logging
 import sqlite3
+import os
 import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 2
+TOPIC_ID = 3
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 async def create_crypto_invoice(amount: float, asset: str, description: str, payload: str):
-    """Directly communicates with CryptoBot HTTP API supporting multiple assets (USDT, BTC, ETH, etc.)."""
     url = "https://pay.crypt.bot/api/createInvoice"
     headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
     data = {
@@ -99,15 +99,16 @@ async def cmd_start(message: types.Message):
     args = message.text.split()
     
     if len(args) > 1:
-        payload = args[1] # Format expected: buy_tier1_USDT, buy_tier1_BTC, buy_tier1_ETH
+        payload = args[1]
         parts = payload.split("_")
         
+        # Jeśli podano już konkretną walutę (np. buy_tier1_BTC)
         if len(parts) == 3:
             tier_key, asset = f"{parts[0]}_{parts[1]}", parts[2].upper()
             tiers = {
-                "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50},
-                "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200},
-                "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0, "tickets": 500}
+                "buy_tier1": {"name": "Ebook Tier 1", "price": 2.0, "tickets": 50, "file": "ebook_1.pdf"},
+                "buy_tier2": {"name": "Ebook Tier 2", "price": 5.0, "tickets": 200, "file": "ebook_2.pdf"},
+                "buy_tier3": {"name": "Ebook Tier 3", "price": 10.0, "tickets": 500, "file": "ebook_3.pdf"}
             }
             
             if tier_key in tiers:
@@ -137,18 +138,21 @@ async def cmd_start(message: types.Message):
                     logging.error(f"CryptoPay error: {e}")
                 return
         
-        # If user clicked a tier button directly without asset choice, show asset selection menu
+        # Jeśli kliknięto przycisk zakupu z grupy – wyświetlamy wybór waluty
         base_tiers = {
             "buy_tier1": "Ebook Tier 1 ($2)",
             "buy_tier2": "Ebook Tier 2 ($5)",
             "buy_tier3": "Ebook Tier 3 ($10)"
         }
         if payload in base_tiers:
+            bot_info = await bot.get_me()
+            bot_username = bot_info.username
+            
             select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    InlineKeyboardButton(text="USDT", url=f"https://t.me/{message.bot.username}?start={payload}_USDT"),
-                    InlineKeyboardButton(text="BTC", url=f"https://t.me/{message.bot.username}?start={payload}_BTC"),
-                    InlineKeyboardButton(text="ETH", url=f"https://t.me/{message.bot.username}?start={payload}_ETH")
+                    InlineKeyboardButton(text="USDT", url=f"https://t.me/{bot_username}?start={payload}_USDT"),
+                    InlineKeyboardButton(text="BTC", url=f"https://t.me/{bot_username}?start={payload}_BTC"),
+                    InlineKeyboardButton(text="ETH", url=f"https://t.me/{bot_username}?start={payload}_ETH")
                 ]
             ])
             await message.answer(
@@ -175,7 +179,7 @@ async def cmd_help(message: types.Message):
         "🔗 /ref - Get your invite link\n"
         "📚 /ebooks - View your purchased e-books\n"
         "🛒 /post_ebooks - Post store to group topic\n"
-        "🧪 /sim_pay - Simulate a test purchase\n"
+        "🧪 /sim_pay - Simulate a test purchase & receive file\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
@@ -233,6 +237,7 @@ async def cmd_sim_pay(message: types.Message):
     user_id = message.from_user.id
     tier_name = "Ebook Tier 3"
     added_tickets = 500
+    file_to_send = "ebook_3.pdf"
     
     conn = sqlite3.connect("bot_database.db")
     cursor = conn.cursor()
@@ -249,10 +254,17 @@ async def cmd_sim_pay(message: types.Message):
         f"🧪 **[PURCHASE SIMULATION]**\n\n"
         f"✅ Successfully simulated payment for: **{tier_name}**\n"
         f"🎟 Added tickets: **+{added_tickets}**\n"
-        f"📊 Your new ticket balance: **{total_tickets}**\n\n"
-        f"Check /ebooks and /tickets commands!",
+        f"📊 Your new ticket balance: **{total_tickets}**",
         parse_mode="Markdown"
     )
+    
+    if os.path.exists(file_to_send):
+        await message.answer_document(
+            document=FSInputFile(file_to_send),
+            caption=f"🎁 Here is your purchased file for {tier_name}!"
+        )
+    else:
+        await message.answer(f"⚠️ Note: Database updated, but file `{file_to_send}` was not found in the bot directory.")
 
 @dp.message(Command("post_ebooks"))
 async def cmd_post_ebooks(message: types.Message):
@@ -294,9 +306,9 @@ async def cmd_post_ebooks(message: types.Message):
     ])
 
     try:
-        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=types.FSInputFile(photo_green), caption=caption_1, reply_markup=keyboard_1, parse_mode="Markdown")
-        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=types.FSInputFile(photo_blue), caption=caption_2, reply_markup=keyboard_2, parse_mode="Markdown")
-        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=types.FSInputFile(photo_purple), caption=caption_3, reply_markup=keyboard_3, parse_mode="Markdown")
+        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=FSInputFile(photo_green), caption=caption_1, reply_markup=keyboard_1, parse_mode="Markdown")
+        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=FSInputFile(photo_blue), caption=caption_2, reply_markup=keyboard_2, parse_mode="Markdown")
+        await bot.send_photo(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, photo=FSInputFile(photo_purple), caption=caption_3, reply_markup=keyboard_3, parse_mode="Markdown")
         await message.answer("✅ Store successfully posted to the group topic!")
     except Exception as e:
         await message.answer(f"⚠️ Error posting store: {e}")
