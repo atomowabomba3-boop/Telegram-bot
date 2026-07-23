@@ -10,7 +10,7 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 2
+TOPIC_ID = 3
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -207,6 +207,10 @@ async def cmd_post_ebooks(message: types.Message):
     photo_blue = "ebook_blue.png.jpg"
     photo_purple = "ebook_purple.png.jpg"
 
+    # Pobieramy nazwę bota dynamicznie, aby uniknąć błędów z linkami
+    bot_info = await bot.get_me()
+    bot_username = bot_info.username
+
     caption_1 = (
         "🟢 **Ebook Tier 1**\n"
         "Basic package for beginners.\n\n"
@@ -214,7 +218,7 @@ async def cmd_post_ebooks(message: types.Message):
         "💰 **Price:** $2 USD"
     )
     keyboard_1 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 1 ($2)", url="https://t.me/Undrgroundzone_bot?start=buy_tier1")]
+        [InlineKeyboardButton(text="🛒 BUY TIER 1 ($2)", url=f"https://t.me/{bot_username}?start=buy_tier1")]
     ])
 
     caption_2 = (
@@ -224,7 +228,7 @@ async def cmd_post_ebooks(message: types.Message):
         "💰 **Price:** $5 USD"
     )
     keyboard_2 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 2 ($5)", url="https://t.me/Undrgroundzone_bot?start=buy_tier2")]
+        [InlineKeyboardButton(text="🛒 BUY TIER 2 ($5)", url=f"https://t.me/{bot_username}?start=buy_tier2")]
     ])
 
     caption_3 = (
@@ -234,7 +238,7 @@ async def cmd_post_ebooks(message: types.Message):
         "💰 **Price:** $10 USD"
     )
     keyboard_3 = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 BUY TIER 3 ($10)", url="https://t.me/Undrgroundzone_bot?start=buy_tier3")]
+        [InlineKeyboardButton(text="🛒 BUY TIER 3 ($10)", url=f"https://t.me/{bot_username}?start=buy_tier3")]
     ])
 
     try:
