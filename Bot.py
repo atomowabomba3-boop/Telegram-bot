@@ -19,6 +19,9 @@ STORE_TOPIC_ID = 3    # Temat dedykowany tylko na informacje o kupnie e-booków
 
 ADMIN_IDS = [8998575936]
 
+# Flaga zapobiegająca uruchomieniu dwóch losowań jednocześnie
+is_drawing_in_progress = False
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -470,8 +473,6 @@ async def cmd_ebooks(message: types.Message):
                     )
                     sent_files.add(filename)
 
-# --- NOWE KOMENDY ADMINISTRACYJNE ---
-
 @dp.message(Command("add_pool"))
 async def cmd_add_pool(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
@@ -561,9 +562,8 @@ async def cmd_extend_giveaway(message: types.Message):
 
     now = datetime.now()
     if new_ends_at <= now:
-        # Jeśli czas po zmianie jest przeszły lub zerowy, natychmiast kończymy konkurs
         await finish_giveaway_automatically(bot, msg_id, winners_count)
-        await message.answer("✅ **[ADMIN]** Czas konkursu minął (lub został skrócony poniżej obecnej chwili) – konkurs został natychmiast zakończony i rozlosowano nagrody!", parse_mode="Markdown")
+        await message.answer("✅ **[ADMIN]** Czas konkursu minął – konkurs został natychmiast zakończony i rozlosowano nagrody!", parse_mode="Markdown")
     else:
         new_ends_at_str = new_ends_at.isoformat()
         conn = sqlite3.connect("bot_database.db", timeout=30.0)
@@ -579,8 +579,6 @@ async def cmd_extend_giveaway(message: types.Message):
             f"⏳ Nowy czas zakończenia: `{new_ends_at.strftime('%Y-%m-%d %H:%M:%S')}`",
             parse_mode="Markdown"
         )
-
-# ------------------------------------
 
 async def process_simulation(message: types.Message, tier_key: str):
     user_id = message.from_user.id
@@ -680,10 +678,17 @@ async def cmd_sim_bots(message: types.Message):
 
 @dp.message(Command("startgiveaway"))
 async def cmd_start_giveaway(message: types.Message):
+    global is_drawing_in_progress
+
     if message.from_user.id not in ADMIN_IDS:
         await message.answer("⚠️ Unauthorized.")
         return
         
+    # ZABEZPIECZENIE PRZED URUCHOMIENIEM DWÓCH LOSOWAN NARAZ
+    if is_drawing_in_progress:
+        await message.answer("⚠️ Losowanie lub proces uruchamiania konkursu jest już w toku! Poczekaj, aż obecne się zakończy.")
+        return
+
     args = message.text.split()
     if len(args) < 3 or not args[1].isdigit():
         await message.answer("⚠️ Usage: `/startgiveaway <winners_count> <hours>`\nE.g.: `/startgiveaway 3 24`", parse_mode="Markdown")
@@ -700,53 +705,57 @@ async def cmd_start_giveaway(message: types.Message):
         await message.answer("⚠️ Winners count must be between 1 and 50.")
         return
 
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
-    raw_pool_amount = cursor.fetchone()[0]
-    pool_amount = get_display_pool(raw_pool_amount)
-    
-    cursor.execute("DELETE FROM giveaway_participants")
-    conn.commit()
-    conn.close()
+    is_drawing_in_progress = True
+    try:
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
+        raw_pool_amount = cursor.fetchone()[0]
+        pool_amount = get_display_pool(raw_pool_amount)
+        
+        cursor.execute("DELETE FROM giveaway_participants")
+        conn.commit()
+        conn.close()
 
-    ends_at = datetime.now() + timedelta(hours=duration_hours)
-    ends_at_str = ends_at.isoformat()
+        ends_at = datetime.now() + timedelta(hours=duration_hours)
+        ends_at_str = ends_at.isoformat()
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎉 JOIN GIVEAWAY", callback_data="join_giveaway")]
-    ])
-    
-    hours, remainder = divmod(int(duration_hours * 3600), 3600)
-    minutes = remainder // 60
-    time_str = f"{hours}h {minutes}m"
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎉 JOIN GIVEAWAY", callback_data="join_giveaway")]
+        ])
+        
+        hours, remainder = divmod(int(duration_hours * 3600), 3600)
+        minutes = remainder // 60
+        time_str = f"{hours}h {minutes}m"
 
-    text = (
-        "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
-        f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
-        f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
-        f"👥 **Participants:** `0` people\n"
-        f"⏳ **Ends in:** `{time_str}`\n\n"
-        "Click the button below to participate!"
-    )
+        text = (
+            "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
+            f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
+            f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
+            f"👥 **Participants:** `0` people\n"
+            f"⏳ **Ends in:** `{time_str}`\n\n"
+            "Click the button below to participate!"
+        )
 
-    sent_msg = await bot.send_message(
-        chat_id=CHAT_ID,
-        message_thread_id=TOPIC_ID,
-        text=text,
-        reply_markup=keyboard,
-        parse_mode="Markdown"
-    )
+        sent_msg = await bot.send_message(
+            chat_id=CHAT_ID,
+            message_thread_id=TOPIC_ID,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
 
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO active_giveaways (message_id, winners_count, ends_at, status) VALUES (?, ?, ?, 'active')", (sent_msg.message_id, winners_count, ends_at_str))
-    conn.commit()
-    conn.close()
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO active_giveaways (message_id, winners_count, ends_at, status) VALUES (?, ?, ?, 'active')", (sent_msg.message_id, winners_count, ends_at_str))
+        conn.commit()
+        conn.close()
 
-    asyncio.create_task(giveaway_timer_task(bot, sent_msg.message_id, duration_hours, winners_count))
+        asyncio.create_task(giveaway_timer_task(bot, sent_msg.message_id, duration_hours, winners_count))
 
-    await message.answer(f"✅ Giveaway successfully started for {duration_hours}h!")
+        await message.answer(f"✅ Giveaway successfully started for {duration_hours}h!")
+    finally:
+        is_drawing_in_progress = False
 
 @dp.message(Command("endgiveaway"))
 async def cmd_end_giveaway(message: types.Message):
