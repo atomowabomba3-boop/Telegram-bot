@@ -226,6 +226,8 @@ async def update_all_active_giveaways(bot: Bot):
             pass
 
 async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: int):
+    global is_drawing_in_progress
+    
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("SELECT status FROM active_giveaways WHERE message_id = ?", (msg_id,))
@@ -258,6 +260,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
             )
         except Exception:
             pass
+        is_drawing_in_progress = False
         return
 
     ticket_pool = []
@@ -312,6 +315,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         pass
         
     await bot.send_message(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, text=result_text, parse_mode="Markdown")
+    is_drawing_in_progress = False
 
 async def giveaway_timer_task(bot: Bot, msg_id: int, duration_hours: float, winners_count: int):
     await asyncio.sleep(duration_hours * 3600)
@@ -796,8 +800,9 @@ async def cmd_start_giveaway(message: types.Message):
         asyncio.create_task(giveaway_timer_task(bot, sent_msg.message_id, duration_hours, winners_count))
 
         await message.answer(f"✅ Giveaway successfully started for {duration_hours}h!")
-    finally:
+    except Exception as e:
         is_drawing_in_progress = False
+        await message.answer(f"⚠️ Error starting giveaway: {e}")
 
 @dp.message(Command("endgiveaway"))
 async def cmd_end_giveaway(message: types.Message):
