@@ -13,13 +13,13 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
-CHAT_ID = "@undergroundzone"
-TOPIC_ID = 2          # Topic for giveaways and results
-STORE_TOPIC_ID = 3    # Topic dedicated only to e-book store information
+CHAT_ID = "@Undrgroundzone"
+TOPIC_ID = 2          # Temat dla giveawayów i wyników
+STORE_TOPIC_ID = 3    # Temat dedykowany tylko na informacje o kupnie e-booków
 
 ADMIN_IDS = [8998575936]
 
-# Flag to prevent running two draws simultaneously
+# Flaga zapobiegająca uruchomieniu dwóch losowań jednocześnie
 is_drawing_in_progress = False
 
 bot = Bot(token=TOKEN)
@@ -207,12 +207,11 @@ async def update_all_active_giveaways(bot: Bot):
             [InlineKeyboardButton(text="🎉 JOIN GIVEAWAY", callback_data="join_giveaway")]
         ])
         text = (
-            "🎁 **UNDERGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
+            "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
             f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `{participants_count}` people\n"
             f"⏳ **Ends in:** `{time_left}`\n\n"
-            "💡 *Want to increase your chances? Buy e-books in the store or invite friends using the /ref command! Each ticket gives you a higher chance to win.*\n\n"
             "Click the button below to participate!"
         )
         try:
@@ -256,7 +255,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
             await bot.edit_message_text(
                 chat_id=CHAT_ID,
                 message_id=msg_id,
-                text="🎉 **UNDERGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n⚠️ Nobody participated in the giveaway!",
+                text="🎉 **UNDRGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n⚠️ Nobody participated in the giveaway!",
                 parse_mode="Markdown"
             )
         except Exception:
@@ -303,7 +302,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     conn.close()
 
     result_text = (
-        "🎉 **UNDERGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n"
+        "🎉 **UNDRGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n"
         f"💰 **Total Distributed Pool:** `${pool_amount:.2f} USD`\n"
         f"🏆 **Prize for each of the {len(winners)} winners:** **`${prize_per_winner:.2f} USD`**\n\n"
         f"🔥 **Winners:**\n{winners_public_text}\n\n"
@@ -440,7 +439,7 @@ async def cmd_start(message: types.Message):
 
     tickets = get_or_create_user(user_id)
     welcome_text = (
-        "👋 Welcome to the Undergroundzone System!\n\n"
+        "👋 Welcome to the Undrgroundzone System!\n\n"
         f"Your current ticket balance: {tickets}\n\n"
         "Use /help to see available commands."
     )
@@ -776,12 +775,11 @@ async def cmd_start_giveaway(message: types.Message):
         time_str = f"{hours}h {minutes}m"
 
         text = (
-            "🎁 **UNDERGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
+            "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
             f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `0` people\n"
             f"⏳ **Ends in:** `{time_str}`\n\n"
-            "💡 *Want to increase your chances? Buy e-books in the store or invite friends using the /ref command! Each ticket gives you a higher chance to win.*\n\n"
             "Click the button below to participate!"
         )
 
@@ -960,7 +958,7 @@ async def member_join(event: ChatMemberUpdated):
                 pass
 
 async def main():
-    print("STARTING BOT...")
+    print("URUCHAMIAM BOTA...")
     logging.basicConfig(level=logging.INFO)
     
     await start_web_server()
