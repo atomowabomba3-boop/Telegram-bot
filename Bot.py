@@ -282,15 +282,19 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
 
     winners_mentions_public = []
     winners_db_records = []
+    admin_private_lines = [f"🏆 **Giveaway Ended - Winners Summary:**\n"]
+
     for w_id in winners:
         try:
             member = await bot.get_chat_member(chat_id=CHAT_ID, user_id=w_id)
             name = member.user.full_name
             winners_mentions_public.append(f"• {name}")
             winners_db_records.append(f"• [{name}](tg://user?id={w_id})")
+            admin_private_lines.append(f"• [{name}](tg://user?id={w_id}) – [Direct Message](tg://user?id={w_id})")
         except Exception:
             winners_mentions_public.append(f"• User ID: {w_id}")
             winners_db_records.append(f"• User ID: `{w_id}`")
+            admin_private_lines.append(f"• User ID: `{w_id}` – [Direct Message](tg://user?id={w_id})")
 
     winners_public_text = "\n".join(winners_mentions_public) if winners_mentions_public else "No winners"
     winners_stored_text = "\n".join(winners_db_records) if winners_db_records else "No winners"
@@ -316,6 +320,15 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         pass
         
     await bot.send_message(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, text=result_text, parse_mode="Markdown")
+
+    # Send private summary to all admins with direct links to winners
+    admin_summary_text = "\n".join(admin_private_lines) + f"\n\n💰 **Prize per winner:** `${prize_per_winner:.2f} USD`"
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_message(chat_id=admin_id, text=admin_summary_text, parse_mode="Markdown")
+        except Exception:
+            pass
+
     is_drawing_in_progress = False
 
 async def giveaway_timer_task(bot: Bot, msg_id: int, duration_hours: float, winners_count: int):
@@ -333,13 +346,16 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="tickets", description="Check your tickets"),
         BotCommand(command="ref", description="Get your invite link"),
         BotCommand(command="ebooks", description="Your purchased e-books"),
-        BotCommand(command="winners", description="View past giveaway winners"),
         BotCommand(command="help", description="Show help"),
     ]
     await bot.set_my_commands(commands)
 
 @dp.message(Command("winners"))
 async def cmd_winners(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Unauthorized.")
+        return
+
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
     cursor.execute("""
@@ -453,7 +469,6 @@ async def cmd_help(message: types.Message):
         "📊 /tickets - Check your tickets\n"
         "🔗 /ref - Get your invite link\n"
         "📚 /ebooks - View and download your purchased e-books\n"
-        "🏆 /winners - View past giveaway winners history\n"
         "❓ /help - Show help"
     )
     await message.answer(help_text, parse_mode="Markdown")
