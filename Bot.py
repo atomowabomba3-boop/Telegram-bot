@@ -191,6 +191,7 @@ async def update_all_active_giveaways(bot: Bot):
         remaining = ends_at - now
         
         if remaining.total_seconds() <= 0:
+            await finish_giveaway_automatically(bot, msg_id, winners_count)
             continue
             
         hours, remainder = divmod(int(remaining.total_seconds()), 3600)
@@ -526,6 +527,58 @@ async def cmd_add_tickets(message: types.Message):
         f"🎟 Nowy balans biletów użytkownika: **{updated_tickets}**",
         parse_mode="Markdown"
     )
+
+@dp.message(Command("extendgiveaway"))
+async def cmd_extend_giveaway(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Unauthorized.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("⚠️ Użycie: `/extendgiveaway <godziny>` (np. `/extendgiveaway 5` lub `/extendgiveaway -2`)", parse_mode="Markdown")
+        return
+
+    try:
+        hours_change = float(args[1])
+    except ValueError:
+        await message.answer("⚠️ Podaj prawidłową liczbę godzin (np. `3` lub `-1.5`).", parse_mode="Markdown")
+        return
+
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute("SELECT message_id, winners_count, ends_at FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
+    active_gw = cursor.fetchone()
+    conn.close()
+
+    if not active_gw:
+        await message.answer("⚠️ Brak aktywnego konkursu do modyfikacji.")
+        return
+
+    msg_id, winners_count, ends_at_str = active_gw
+    current_ends_at = datetime.fromisoformat(ends_at_str)
+    new_ends_at = current_ends_at + timedelta(hours=hours_change)
+
+    now = datetime.now()
+    if new_ends_at <= now:
+        # Jeśli czas po zmianie jest przeszły lub zerowy, natychmiast kończymy konkurs
+        await finish_giveaway_automatically(bot, msg_id, winners_count)
+        await message.answer("✅ **[ADMIN]** Czas konkursu minął (lub został skrócony poniżej obecnej chwili) – konkurs został natychmiast zakończony i rozlosowano nagrody!", parse_mode="Markdown")
+    else:
+        new_ends_at_str = new_ends_at.isoformat()
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE active_giveaways SET ends_at = ? WHERE message_id = ?", (new_ends_at_str, msg_id))
+        conn.commit()
+        conn.close()
+
+        await update_all_active_giveaways(bot)
+        action_word = "przedłużony" if hours_change > 0 else "skrócony"
+        await message.answer(
+            f"✅ **[ADMIN]** Czas aktywnego konkursu został pomyślnie {action_word} o `{abs(hours_change)}h`!\n"
+            f"⏳ Nowy czas zakończenia: `{new_ends_at.strftime('%Y-%m-%d %H:%M:%S')}`",
+            parse_mode="Markdown"
+        )
 
 # ------------------------------------
 
