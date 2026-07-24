@@ -489,22 +489,8 @@ async def cmd_ref(message: types.Message):
             parse_mode="Markdown"
         )
     except Exception as e:
-        try:
-            new_invite = await bot.export_chat_invite_link(chat_id=CHAT_ID)
-            link = new_invite
-            conn = sqlite3.connect("bot_database.db", timeout=30.0)
-            cursor = conn.cursor()
-            cursor.execute("INSERT OR REPLACE INTO invite_links (invite_link, user_id) VALUES (?, ?)", (link, user_id))
-            conn.commit()
-            conn.close()
-            await message.answer(
-                f"🔗 **Your permanent invite link:**\n{link}\n\n"
-                "Share this link with your friends! When someone joins using it, you get +1 ticket boost.",
-                parse_mode="Markdown"
-            )
-        except Exception as ex:
-            await message.answer("⚠️ Error generating link. Make sure the bot is an administrator in the group with invite permissions.")
-            logging.error(f"Invite link error: {ex}")
+        await message.answer("⚠️ Error generating link. Make sure the bot is an administrator in the group with invite permissions.")
+        logging.error(f"Invite link error: {e}")
 
 @dp.message(Command("ebooks"))
 async def cmd_ebooks(message: types.Message):
