@@ -212,6 +212,7 @@ async def update_all_active_giveaways(bot: Bot):
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `{participants_count}` people\n"
             f"⏳ **Ends in:** `{time_left}`\n\n"
+            "💡 *Chcesz zwiększyć swoje szanse? Kupuj e-booki w sklepie lub zapraszaj znajomych za pomocą komendy /ref! Każdy bilet to większa szansa na wygraną.*\n\n"
             "Click the button below to participate!"
         )
         try:
@@ -780,6 +781,7 @@ async def cmd_start_giveaway(message: types.Message):
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `0` people\n"
             f"⏳ **Ends in:** `{time_str}`\n\n"
+            "💡 *Chcesz zwiększyć swoje szanse? Kupuj e-booki w sklepie lub zapraszaj znajomych za pomocą komendy /ref! Każdy bilet to większa szansa na wygraną.*\n\n"
             "Click the button below to participate!"
         )
 
@@ -822,7 +824,7 @@ async def cmd_end_giveaway(message: types.Message):
 
     msg_id, winners_count = active_gw
     await finish_giveaway_automatically(bot, msg_id, winners_count)
-    await message.answer("✅ Giveaway prematurely ended and winners drawn!")
+        await message.answer("✅ Giveaway prematurely ended and winners drawn!")
 
 @dp.callback_query(lambda c: c.data == "join_giveaway")
 async def process_join_giveaway(callback_query: CallbackQuery):
