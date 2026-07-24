@@ -824,7 +824,7 @@ async def cmd_end_giveaway(message: types.Message):
 
     msg_id, winners_count = active_gw
     await finish_giveaway_automatically(bot, msg_id, winners_count)
-        await message.answer("✅ Giveaway prematurely ended and winners drawn!")
+    await message.answer("✅ Giveaway prematurely ended and winners drawn!")
 
 @dp.callback_query(lambda c: c.data == "join_giveaway")
 async def process_join_giveaway(callback_query: CallbackQuery):
