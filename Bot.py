@@ -414,7 +414,7 @@ async def cmd_start(message: types.Message):
         if clean_payload in TIERS:
             bot_username = (await bot.get_me()).username
             p_key = f"buy_{clean_payload}"
-            select_keyboard = InlineLinkMarkup = InlineKeyboardMarkup(inline_keyboard=[
+            select_keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
                     InlineKeyboardButton(text="USDT", url=f"https://t.me/{bot_username}?start={p_key}_USDT"),
                     InlineKeyboardButton(text="TON", url=f"https://t.me/{bot_username}?start={p_key}_TON"),
@@ -468,8 +468,6 @@ async def cmd_ref(message: types.Message):
         chat = await bot.get_chat(CHAT_ID)
         link = chat.invite_link
         
-        if not link -> None:
-            pass
         if not link:
             new_invite = await bot.export_chat_invite_link(chat_id=CHAT_ID)
             link = new_invite
@@ -957,8 +955,6 @@ async def member_join(event: ChatMemberUpdated):
 async def main():
     print("URUCHAMIAM BOTA...")
     logging.basicConfig(level=logging.INFO)
-    
-    `await start_web_server()`
     
     await start_web_server()
     
