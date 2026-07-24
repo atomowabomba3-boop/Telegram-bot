@@ -161,11 +161,10 @@ def get_or_create_user(user_id: int, ref_id: int = None):
     conn.close()
     return tickets
 
-def add_to_giveaway_pool(price: float):
+def add_to_giveaway_pool_raw(amount: float):
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
-    added_amount = price * 0.8
-    cursor.execute("UPDATE giveaway_pool SET amount = amount + ? WHERE id = 1", (added_amount,))
+    cursor.execute("UPDATE giveaway_pool SET amount = amount + ? WHERE id = 1", (amount,))
     conn.commit()
     cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
     current_pool = cursor.fetchone()[0]
@@ -272,7 +271,6 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
     cursor.execute("UPDATE giveaway_pool SET amount = 0.0 WHERE id = 1")
     
-    # Resetujemy tickety i usuwamy z uczestników TYLKO tych, którzy wzięli udział w tym losowaniu
     for uid in participants:
         cursor.execute("UPDATE users SET tickets = 1 WHERE user_id = ?", (uid,))
     cursor.execute("DELETE FROM giveaway_participants")
@@ -471,6 +469,66 @@ async def cmd_ebooks(message: types.Message):
                     )
                     sent_files.add(filename)
 
+# --- NOWE KOMENDY ADMINISTRACYJNE ---
+
+@dp.message(Command("add_pool"))
+async def cmd_add_pool(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Unauthorized.")
+        return
+        
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("⚠️ Użycie: `/add_pool <kwota>` (np. `/add_pool 15`)", parse_mode="Markdown")
+        return
+        
+    try:
+        amount_to_add = float(args[1])
+    except ValueError:
+        await message.answer("⚠️ Podaj prawidłową kwotę liczbą (np. `10` lub `5.50`).", parse_mode="Markdown")
+        return
+        
+    new_raw_pool = add_to_giveaway_pool_raw(amount_to_add)
+    await update_all_active_giveaways(bot)
+    
+    await message.answer(
+        f"✅ **[ADMIN]** Pomyślnie dodano `${amount_to_add:.2f} USD` do puli!\n"
+        f"📊 Aktualna pula w bazie (surowa): `${new_raw_pool:.2f} USD`",
+        parse_mode="Markdown"
+    )
+
+@dp.message(Command("add_tickets"))
+async def cmd_add_tickets(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Unauthorized.")
+        return
+        
+    args = message.text.split()
+    if len(args) < 3 or not args[1].isdigit() or not args[2].isdigit():
+        await message.answer("⚠️ Użycie: `/add_tickets <user_id> <liczba_biletów>` (np. `/add_tickets 8998575936 10`)", parse_mode="Markdown")
+        return
+        
+    target_user_id = int(args[1])
+    tickets_to_add = int(args[2])
+    
+    get_or_create_user(target_user_id)
+    
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (tickets_to_add, target_user_id))
+    cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (target_user_id,))
+    updated_tickets = cursor.fetchone()[0]
+    conn.commit()
+    conn.close()
+    
+    await message.answer(
+        f"✅ **[ADMIN]** Pomyślnie dodano `+{tickets_to_add}` biletów dla użytkownika `{target_user_id}`!\n"
+        f"🎟 Nowy balans biletów użytkownika: **{updated_tickets}**",
+        parse_mode="Markdown"
+    )
+
+# ------------------------------------
+
 async def process_simulation(message: types.Message, tier_key: str):
     user_id = message.from_user.id
     if user_id not in ADMIN_IDS:
@@ -492,7 +550,7 @@ async def process_simulation(message: types.Message, tier_key: str):
     conn.commit()
     conn.close()
     
-    add_to_giveaway_pool(tier_data["price"])
+    add_to_giveaway_pool_raw(tier_data["price"] * 0.8)
     await update_all_active_giveaways(bot)
     
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
