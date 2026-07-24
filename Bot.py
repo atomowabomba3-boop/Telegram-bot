@@ -14,12 +14,12 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 2          # Temat dla giveawayów i wyników
-STORE_TOPIC_ID = 3    # Temat dedykowany tylko na informacje o kupnie e-booków
+TOPIC_ID = 2          # Topic for giveaways and results
+STORE_TOPIC_ID = 3    # Topic dedicated exclusively to e-book store info
 
 ADMIN_IDS = [8998575936]
 
-# Flaga zapobiegająca uruchomieniu dwóch losowań jednocześnie
+# Flag preventing multiple draws from running simultaneously
 is_drawing_in_progress = False
 
 bot = Bot(token=TOKEN)
@@ -212,6 +212,7 @@ async def update_all_active_giveaways(bot: Bot):
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `{participants_count}` people\n"
             f"⏳ **Ends in:** `{time_left}`\n\n"
+            "💡 *Tip: Inviting friends via referrals and buying e-books increases your chances by boosting your tickets!*\n\n"
             "Click the button below to participate!"
         )
         try:
@@ -780,6 +781,7 @@ async def cmd_start_giveaway(message: types.Message):
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `0` people\n"
             f"⏳ **Ends in:** `{time_str}`\n\n"
+            "💡 *Tip: Inviting friends via referrals and buying e-books increases your chances by boosting your tickets!*\n\n"
             "Click the button below to participate!"
         )
 
@@ -952,13 +954,13 @@ async def member_join(event: ChatMemberUpdated):
             try:
                 await bot.send_message(
                     new_user_id,
-                    "👋 Welcome to the group! You have received your base 1 token."
+                    "👋 Welcome to the group! You have received your base 1 ticket."
                 )
             except Exception:
                 pass
 
 async def main():
-    print("URUCHAMIAM BOTA...")
+    print("STARTING BOT...")
     logging.basicConfig(level=logging.INFO)
     
     await start_web_server()
