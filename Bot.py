@@ -146,7 +146,7 @@ def init_db():
 init_db()
 
 def get_display_pool(raw_amount: float) -> float:
-    return raw_amount if raw_amount >= 30.0 else 30.0
+    return raw_amount if raw_amount >= 15.0 else 15.0
 
 def get_or_create_user(user_id: int, ref_id: int = None):
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
@@ -494,37 +494,6 @@ async def cmd_add_pool(message: types.Message):
     await message.answer(
         f"✅ **[ADMIN]** Pomyślnie dodano `${amount_to_add:.2f} USD` do puli!\n"
         f"📊 Aktualna pula w bazie (surowa): `${new_raw_pool:.2f} USD`",
-        parse_mode="Markdown"
-    )
-
-# --- NOWA KOMENDA DO USTAWIENIA BAZOWEJ PULI GHOST ---
-@dp.message(Command("set_ghost_pool", "setghostpool"))
-async def cmd_set_ghost_pool(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    args = message.text.split()
-    if len(args) < 2:
-        await message.answer("⚠️ Użycie: `/set_ghost_pool <kwota>` (np. `/set_ghost_pool 50`)", parse_mode="Markdown")
-        return
-
-    try:
-        new_ghost_val = float(args[1])
-    except ValueError:
-        await message.answer("⚠️ Podaj prawidłową liczbę (np. `30` lub `100.50`).", parse_mode="Markdown")
-        return
-
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE giveaway_pool SET amount = ? WHERE id = 1", (new_ghost_val,))
-    conn.commit()
-    conn.close()
-
-    await update_all_active_giveaways(bot)
-
-    await message.answer(
-        f"✅ **[ADMIN]** Pomyślnie ustawiono bazową pulę ghost na: **`${new_ghost_val:.2f} USD`**",
         parse_mode="Markdown"
     )
 
