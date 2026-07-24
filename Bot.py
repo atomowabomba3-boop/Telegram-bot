@@ -454,7 +454,7 @@ async def cmd_help(message: types.Message):
         "🔗 /ref - Get your invite link\n"
         "📚 /ebooks - View and download your purchased e-books\n"
         "🏆 /winners - View past giveaway winners history\n"
-        "❓ /help - Show help"
+        "❓ /help - Check bot status"
     )
     await message.answer(help_text, parse_mode="Markdown")
 
@@ -823,6 +823,14 @@ async def cmd_end_giveaway(message: types.Message):
         return
 
     msg_id, winners_count = active_gw
+    try:
+        bot_member = await bot.get_chat_member(chat_id=CHAT_ID, user_id=bot.id)
+        if bot_member.status not in ["administrator", "creator"]:
+            await message.answer("⚠️ Bot is not an administrator in the channel/group. Please grant admin rights to the bot.")
+            return
+    except Exception:
+        pass
+
     await finish_giveaway_automatically(bot, msg_id, winners_count)
     await message.answer("✅ Giveaway prematurely ended and winners drawn!")
 
@@ -868,6 +876,14 @@ async def cmd_post_ebooks(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
         await message.answer("⚠️ Unauthorized.")
         return
+
+    try:
+        bot_member = await bot.get_chat_member(chat_id=CHAT_ID, user_id=bot.id)
+        if bot_member.status not in ["administrator", "creator"]:
+            await message.answer("⚠️ Bot is not an administrator in the channel/group. Please grant admin rights to the bot.")
+            return
+    except Exception:
+        pass
 
     bot_username = (await bot.get_me()).username
 
