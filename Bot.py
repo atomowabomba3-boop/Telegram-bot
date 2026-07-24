@@ -275,8 +275,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     cursor.execute("UPDATE active_giveaways SET status = 'ended' WHERE message_id = ?", (msg_id,))
     cursor.execute("UPDATE giveaway_pool SET amount = 0.0 WHERE id = 1")
     
-    for uid in participants:
-        cursor.execute("UPDATE users SET tickets = 1 WHERE user_id = ?", (uid,))
+    # Usuwamy automatyczny reset biletów, aby użytkownicy nie tracili swoich biletów i boostów!
     cursor.execute("DELETE FROM giveaway_participants")
     
     conn.commit()
@@ -298,7 +297,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         f"💰 **Total Distributed Pool:** `${pool_amount:.2f} USD`\n"
         f"🏆 **Prize for each of the {len(winners)} winners:** **`${prize_per_winner:.2f} USD`**\n\n"
         f"🔥 **Winners:**\n{winners_text}\n\n"
-        "Congratulations! Participants' tickets reset to base 1, non-participants kept theirs."
+        "Congratulations! The giveaway has successfully concluded."
     )
 
     try:
@@ -684,7 +683,6 @@ async def cmd_start_giveaway(message: types.Message):
         await message.answer("⚠️ Unauthorized.")
         return
         
-    # ZABEZPIECZENIE PRZED URUCHOMIENIEM DWÓCH LOSOWAN NARAZ
     if is_drawing_in_progress:
         await message.answer("⚠️ Losowanie lub proces uruchamiania konkursu jest już w toku! Poczekaj, aż obecne się zakończy.")
         return
@@ -868,7 +866,7 @@ async def member_join(event: ChatMemberUpdated):
             if invite_link_obj and invite_link_obj.invite_link:
                 link_url = invite_link_obj.invite_link
                 
-                conn = sqlite3.connect("db_referrals.db", timeout=30.0)
+                conn = sqlite3.connect("bot_database.db", timeout=30.0)
                 cursor = conn.cursor()
                 cursor.execute("SELECT user_id FROM invite_links WHERE invite_link = ?", (link_url,))
                 row = cursor.fetchone()
