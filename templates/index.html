@@ -59,15 +59,27 @@
         .header-right {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+        }
+
+        .lang-wrapper {
+            display: flex;
+            align-items: center;
+            background: #0b0b0e;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 4px 8px;
+            gap: 6px;
+        }
+
+        .lang-icon {
+            font-size: 16px;
         }
 
         .lang-select {
-            background: #0b0b0e;
+            background: transparent;
             color: var(--text-main);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 6px 10px;
-            border-radius: 8px;
+            border: none;
             font-size: 13px;
             cursor: pointer;
             outline: none;
@@ -190,16 +202,19 @@
     <header>
         <div class="logo">UNDERGROUNDZONE</div>
         <div class="header-right">
-            <select class="lang-select" id="lang-switcher" onchange="changeLanguage(this.value)">
-                <option value="en">English</option>
-                <option value="pl" selected>Polski</option>
-                <option value="ru">Русский</option>
-                <option value="es">Español</option>
-                <option value="de">Deutsch</option>
-                <option value="fr">Français</option>
-                <option value="zh">中文</option>
-                <option value="ar">العربية</option>
-            </select>
+            <div class="lang-wrapper">
+                <span class="lang-icon">🌐</span>
+                <select class="lang-select" id="lang-switcher" onchange="changeLanguage(this.value)">
+                    <option value="pl" selected>Polski</option>
+                    <option value="en">English</option>
+                    <option value="ru">Русский</option>
+                    <option value="es">Español</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                    <option value="zh">中文</option>
+                    <option value="ar">العربية</option>
+                </select>
+            </div>
             <div class="user-tickets" id="header-tickets">🎟️ 0</div>
         </div>
     </header>
@@ -352,7 +367,6 @@
                 }
             });
 
-            // Obsługa kierunku pisania dla języka arabskiego (RTL)
             if (lang === 'ar') {
                 document.getElementById('html-root').setAttribute('dir', 'rtl');
             } else {
@@ -360,7 +374,6 @@
             }
         }
 
-        // Automatyczne ustawienie języka zapisanego lub z przeglądarki
         const savedLang = localStorage.getItem('ug_lang') || 'pl';
         document.getElementById('lang-switcher').value = savedLang;
         changeLanguage(savedLang);
@@ -383,7 +396,6 @@
             sessionClicks++;
             document.getElementById('click-counter').innerText = sessionClicks;
             
-            // Natychmiastowa aktualizacja lokalna UI
             let currentTickets = parseInt(localStorage.getItem('ug_tickets') || '0') + 1;
             localStorage.setItem('ug_tickets', currentTickets);
             document.getElementById('header-tickets').innerText = `🎟️ ${currentTickets}`;
