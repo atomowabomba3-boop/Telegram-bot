@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, CallbackQuery
+from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
@@ -53,7 +53,7 @@ TIERS = {
 }
 
 async def handle(request):
-    return web.Response(text="Bot is running!")
+    return web.Response(text="Undergroundzone Bot is running!")
 
 async def handle_mini_app(request):
     html_path = pathlib.Path(__file__).parent / "templates" / "index.html"
@@ -82,7 +82,7 @@ async def api_get_user(request):
     return web.json_response({
         "user_id": user_id,
         "tickets": tickets,
-        "points": tickets, # Dla pełnej kompatybilności z frontendem
+        "points": tickets,
         "referrals_count": ref_count,
         "pool_amount": pool_amount
     })
@@ -319,9 +319,9 @@ async def route_user_response(message: types.Message, text_to_send: str, reply_m
     if message.chat.type != "private":
         try:
             await bot.send_message(message.from_user.id, text_to_send, reply_markup=reply_markup, parse_mode=parse_mode)
-            await message.answer(f"@{message.from_user.username or message.from_user.first_name}, sprawdziłem! Odpowiedź została wysłana do Ciebie w wiadomości prywatnej (DM). 📬")
+            await message.answer(f"@{message.from_user.username or message.from_user.first_name}, sprawdź wiadomość prywatną (DM)! 📬")
         except Exception:
-            await message.answer(f"@{message.from_user.username or message.from_user.first_name}, nie mogłem wysłać Ci wiadomości prywatnej. Odblokuj bota @Giveaway63bot! ⚠️")
+            await message.answer(f"@{message.from_user.username or message.from_user.first_name}, odblokuj bota w wiadomości prywatnej! ⚠️")
     else:
         await message.answer(text_to_send, reply_markup=reply_markup, parse_mode=parse_mode)
 
@@ -356,12 +356,12 @@ async def update_all_active_giveaways(bot: Bot):
             [InlineKeyboardButton(text="🎉 JOIN GIVEAWAY", callback_data="join_giveaway")]
         ])
         text = (
-            "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
+            "🎁 **UNDERGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
             f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `{participants_count}` people\n"
             f"⏳ **Ends in:** `{time_left}`\n\n"
-            "⚠️ **WARNING:** You must be a member of the group to enter and stay in the giveaway!\n\n"
+            "⚠️ **WARNING:** You must be a member of the group to enter!\n\n"
             "Click the button below to participate!"
         )
         try:
@@ -405,7 +405,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
             await bot.edit_message_text(
                 chat_id=CHAT_ID,
                 message_id=msg_id,
-                text="🎉 **UNDRGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n⚠️ Nobody participated in the giveaway!",
+                text="🎉 **UNDERGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n⚠️ Nobody participated!",
                 parse_mode="Markdown"
             )
         except Exception:
@@ -456,7 +456,7 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     conn.close()
 
     result_text = (
-        "🎉 **UNDRGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n"
+        "🎉 **UNDERGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n"
         f"💰 **Total Distributed Pool:** `${pool_amount:.2f} USD`\n"
         f"🏆 **Prize for each winner:** **`${prize_per_winner:.2f} USD`**\n\n"
         f"🔥 **Winners:**\n{winners_public_text}\n\n"
@@ -482,11 +482,11 @@ async def background_ticker(bot: Bot):
 
 async def set_bot_commands(bot: Bot):
     commands = [
-        BotCommand(command="start", description="Start the bot"),
-        BotCommand(command="tickets", description="Check your tickets"),
-        BotCommand(command="ref", description="Get your invite link"),
-        BotCommand(command="ebooks", description="Your purchased e-books"),
-        BotCommand(command="help", description="Show help"),
+        BotCommand(command="start", description="Start bot"),
+        BotCommand(command="tickets", description="Check tickets"),
+        BotCommand(command="ref", description="Invite link"),
+        BotCommand(command="ebooks", description="Purchased ebooks"),
+        BotCommand(command="help", description="Help"),
     ]
     await bot.set_my_commands(commands)
 
@@ -519,7 +519,7 @@ async def trigger_start_giveaway_internal(winners_count: int, duration_hours: fl
         time_str = f"{hours}h {minutes}m"
 
         text = (
-            "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
+            "🎁 **UNDERGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
             f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `0` people\n"
@@ -578,7 +578,7 @@ async def cmd_start(message: types.Message):
                     
                     pay_text = (
                         f"🛒 **Generating payment for {tier_data['name']}**\n\n"
-                        f"🎟 **Included boost:** {tier_data['tickets']} tickets\n"
+                        f"🎟 **Boost:** {tier_data['tickets']} tickets\n"
                         f"💰 **Amount:** ${tier_data['price']} USD\n\n"
                         "Click below to pay:"
                     )
@@ -603,7 +603,7 @@ async def cmd_start(message: types.Message):
             return
 
     tickets = get_or_create_user(user_id)
-    await route_user_response(message, f"👋 Welcome to Undrgroundzone!\nYour tickets: {tickets}")
+    await route_user_response(message, f"👋 Welcome to Undergroundzone!\nYour tickets: {tickets}")
 
 @dp.callback_query(lambda c: c.data == "join_giveaway")
 async def process_join_giveaway(callback_query: CallbackQuery):
@@ -634,7 +634,7 @@ async def member_join(event: ChatMemberUpdated):
             get_or_create_user(event.new_chat_member.user.id)
 
 async def main():
-    print("STARTING BOT...")
+    print("STARTING UNDERGROUNDZONE BOT...")
     logging.basicConfig(level=logging.INFO)
     await start_web_server()
     await set_bot_commands(bot)
