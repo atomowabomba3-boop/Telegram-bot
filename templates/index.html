@@ -3,21 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Undrgroundzone - Ultimate Hub</title>
+    <title>Undrgroundzone Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: var(--tg-theme-bg-color, #05070b);
-            --card-bg: var(--tg-theme-secondary-bg-color, #0e1422);
-            --text-color: var(--tg-theme-text-color, #f8fafc);
-            --hint-color: var(--tg-theme-hint-color, #64748b);
-            --primary-color: var(--tg-theme-button-color, #6366f1);
-            --primary-text: var(--tg-theme-button-text-color, #ffffff);
-            --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #ec4899 100%);
-            --danger-color: #ef4444;
-            --success-color: #22c55e;
-            --warning-color: #f59e0b;
-            --border-color: rgba(255, 255, 255, 0.08);
+            --bg-color: var(--tg-theme-bg-color, #121212);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+            --hint-color: var(--tg-theme-hint-color, #aaaaaa);
+            --button-color: var(--tg-theme-button-color, #2481cc);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --card-bg: #1e1e1e;
+            --border-color: #2c2c2c;
+            --admin-color: #e53935;
         }
 
         body {
@@ -25,391 +22,277 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 12px;
-            padding-bottom: 60px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 16px;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            margin: 0 0 4px 0;
-            background: var(--accent-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .header p {
-            color: var(--hint-color);
-            font-size: 12px;
-            margin: 0;
+        .container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding-bottom: 40px;
         }
 
         .card {
             background-color: var(--card-bg);
-            border-radius: 16px;
-            padding: 14px;
-            margin-bottom: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
             border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
 
-        .grid-4 {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
+        .header-card {
+            text-align: center;
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: 700;
             margin-bottom: 8px;
         }
 
-        .stat-box {
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 12px;
-            padding: 10px;
-            text-align: center;
-            border: 1px solid var(--border-color);
-        }
-
-        .stat-box .value {
-            font-size: 18px;
-            font-weight: 700;
-            margin-top: 2px;
-            color: var(--text-color);
-        }
-
-        .stat-box .label {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--hint-color);
-        }
-
-        h3 {
-            font-size: 14px;
-            margin-top: 0;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn {
-            background: var(--primary-color);
-            color: var(--primary-text);
-            border: none;
-            border-radius: 10px;
-            padding: 10px 14px;
-            font-size: 13px;
-            font-weight: 600;
-            width: 100%;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            box-sizing: border-box;
-            text-decoration: none;
-            margin-top: 6px;
-        }
-
-        .btn:active { transform: scale(0.98); opacity: 0.9; }
-        .btn-success { background: var(--success-color); }
-        .btn-danger { background: var(--danger-color); }
-        .btn-warning { background: var(--warning-color); color: #000; }
-
-        .store-grid {
+        .stats-grid {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 8px;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
         }
 
-        .store-item {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 10px 12px;
+        .stat-box {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--button-color);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--hint-color);
+            margin-top: 4px;
+        }
+
+        button {
+            background-color: var(--button-color);
+            color: var(--button-text-color);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+
+        button:active {
+            opacity: 0.8;
+        }
+
+        .admin-section {
+            display: none;
+            border-color: var(--admin-color);
+        }
+
+        .admin-title {
+            color: var(--admin-color);
+            font-weight: bold;
+            margin-bottom: 12px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 6px;
         }
 
-        .store-info h4 { margin: 0 0 2px 0; font-size: 14px; }
-        .store-info p { margin: 0; font-size: 11px; color: var(--hint-color); }
+        .admin-btn {
+            background-color: var(--admin-color);
+            margin-top: 8px;
+        }
 
         input {
             width: 100%;
             padding: 10px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
-            background-color: rgba(0, 0, 0, 0.3);
+            background-color: #121212;
             color: var(--text-color);
-            margin-bottom: 8px;
-            font-size: 13px;
             box-sizing: border-box;
-            outline: none;
+            margin-top: 6px;
+            margin-bottom: 12px;
         }
 
-        input:focus { border-color: var(--primary-color); }
-
-        .ref-box {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 11px;
-            word-break: break-all;
-            color: var(--hint-color);
-            margin-bottom: 8px;
-            border: 1px dashed var(--border-color);
-            font-family: monospace;
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
 
         .leaderboard-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 8px 10px;
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 8px;
-            font-size: 13px;
-            margin-bottom: 6px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
         }
 
-        #toast {
-            visibility: hidden;
-            min-width: 220px;
-            background-color: #1e293b;
-            color: #fff;
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-msg {
+            font-size: 13px;
             text-align: center;
-            border-radius: 8px;
-            padding: 12px;
-            position: fixed;
-            z-index: 1000;
-            left: 50%;
-            bottom: 20px;
-            transform: translateX(-50%);
-            font-size: 13px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            border: 1px solid var(--border-color);
+            margin-top: 8px;
+            color: var(--hint-color);
         }
-
-        #toast.show { visibility: visible; animation: fadein 0.3s, fadeout 0.3s 2.5s; }
-        @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
-        @keyframes fadeout { from { bottom: 20px; opacity: 1; } to { bottom: 0; opacity: 0; } }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>⚡ Undrgroundzone Hub</h1>
-        <p>Advanced Giveaway, Store & Tier System</p>
-    </div>
-
-    <!-- Comprehensive Stats Grid -->
-    <div class="card">
-        <h3>📊 Comprehensive Stats</h3>
-        <div class="grid-4">
-            <div class="stat-box">
-                <div class="label">Total Tickets</div>
-                <div class="value" id="stat-tickets">0</div>
-            </div>
-            <div class="stat-box">
-                <div class="label">Referrals</div>
-                <div class="value" id="stat-refs">0</div>
-            </div>
-            <div class="stat-box">
-                <div class="label">Win Chance</div>
-                <div class="value" id="stat-chance">0.0%</div>
-            </div>
-            <div class="stat-box">
-                <div class="label">User Rank</div>
-                <div class="value" id="stat-rank">#--</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Active Prize Pool Preview -->
-    <div class="card">
-        <h3>🎁 Active Prize Pool</h3>
-        <div id="prize-pool-list" style="font-size: 13px; color: var(--hint-color);">
-            Loading prize pool...
-        </div>
-    </div>
-
-    <!-- E-book Store -->
-    <div class="card">
-        <h3>📚 Ultimate E-Book Store</h3>
-        <div class="store-grid">
-            <div class="store-item">
-                <div class="store-info">
-                    <h4>Starter Tier</h4>
-                    <p>+50 Tickets + Bonus • $2.00</p>
+    <div class="container">
+        <!-- Profil / Statystyki użytkownika -->
+        <div class="card header-card">
+            <div class="title">🔥 Undrgroundzone Hub</div>
+            <div id="username" style="color: var(--hint-color); font-size: 14px;">Loading profile...</div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="user-points">-</div>
+                    <div class="stat-label">Your Tickets</div>
                 </div>
-                <a href="#" id="buy-tier1" class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;">Get</a>
-            </div>
-            <div class="store-item">
-                <div class="store-info">
-                    <h4>Pro Tier</h4>
-                    <p>+200 Tickets + VIP • $5.00</p>
+                <div class="stat-box">
+                    <div class="stat-value" id="user-refs">-</div>
+                    <div class="stat-label">Referrals</div>
                 </div>
-                <a href="#" id="buy-tier2" class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;">Get</a>
-            </div>
-            <div class="store-item">
-                <div class="store-info">
-                    <h4>Elite Master Tier</h4>
-                    <p>+500 Tickets + Mega Boost • $10.00</p>
-                </div>
-                <a href="#" id="buy-tier3" class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;">Get</a>
             </div>
         </div>
-    </div>
 
-    <!-- Referral Program -->
-    <div class="card">
-        <h3>🔗 Referral Engine</h3>
-        <div class="ref-box" id="ref-link">Generating link...</div>
-        <button class="btn" onclick="copyRefLink()">📋 Copy Ref Link</button>
-    </div>
-
-    <!-- Live Leaderboard -->
-    <div class="card">
-        <h3>🏆 Live Global Leaderboard</h3>
-        <div id="leaderboard">
-            <div style="text-align: center; color: var(--hint-color); padding: 8px;">Loading leaderboard...</div>
-        </div>
-    </div>
-
-    <!-- Admin Control Panel -->
-    <div id="admin-panel" class="card" style="display: none; border-color: var(--primary-color);">
-        <h3>🛠 Master Admin Control Panel</h3>
-        
-        <button class="btn btn-success" onclick="adminAction('start')">🚀 Broadcast & Start Giveaway</button>
-        
-        <div style="margin-top: 10px;">
-            <label style="font-size: 10px; color: var(--hint-color); text-transform: uppercase;">Add Prize to Pool:</label>
-            <input type="text" id="pool-input" placeholder="e.g. $50 Steam GiftCard">
-            <button class="btn btn-warning" onclick="adminAction('add_pool')">➕ Push Prize to Pool</button>
+        <!-- Tabela wyników -->
+        <div class="card">
+            <div class="title" style="font-size: 16px; margin-bottom: 12px;">🏆 Top Leaderboard</div>
+            <ul class="leaderboard-list" id="leaderboard">
+                <li class="leaderboard-item"><span>Loading...</span><span>-</span></li>
+            </ul>
         </div>
 
-        <div style="margin-top: 10px;">
-            <label style="font-size: 10px; color: var(--hint-color); text-transform: uppercase;">User Ticket Management:</label>
-            <input type="text" id="target-id" placeholder="Telegram User ID">
-            <input type="number" id="tickets-count" placeholder="Ticket amount (+ or -)">
-            <button class="btn" onclick="adminAction('add_tickets')">🎟 Execute Ticket Adjustment</button>
+        <!-- Panel Administratora (widoczny tylko dla ADMIN_IDS) -->
+        <div class="card admin-section" id="admin-panel">
+            <div class="admin-title">⚡ Admin Control Panel</div>
+            
+            <label style="font-size: 13px;">Add Pool Amount ($):</label>
+            <input type="number" id="admin-pool-input" placeholder="15" value="15">
+            <button class="admin-btn" onclick="adminAction('add_pool')">Add to Giveaway Pool</button>
+
+            <label style="font-size: 13px; margin-top: 12px; display: block;">Target User ID:</label>
+            <input type="number" id="admin-target-id" placeholder="User ID">
+            <label style="font-size: 13px;">Tickets Count:</label>
+            <input type="number" id="admin-tickets-count" placeholder="10">
+            <button class="admin-btn" onclick="adminAction('add_tickets')">Add Tickets to User</button>
+
+            <button class="admin-btn" style="margin-top: 16px;" onclick="adminAction('start')">Start New Giveaway</button>
+            <button class="admin-btn" style="background-color: #f57c00;" onclick="adminAction('winners')">Draw Winners Now</button>
+            
+            <div class="status-msg" id="admin-status"></div>
         </div>
-
-        <button class="btn btn-danger" style="margin-top: 10px;" onclick="adminAction('winners')">🎲 Execute Random Winners Draw</button>
     </div>
-
-    <div id="toast">Notification</div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let userId = 8998575936; 
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-            userId = tg.initDataUnsafe.user.id;
+        const user = tg.initDataUnsafe?.user;
+        const userId = user ? user.id : 8998575936; // Fallback do testów lokalnych dla admina
+
+        if (user) {
+            document.getElementById('username').innerText = `@${user.username || user.first_name}`;
+        } else {
+            document.getElementById('username').innerText = `User ID: ${userId} (Debug)`;
         }
 
-        if (userId === 8998575936) {
+        // Lista uprzywilejowanych adminów zgodna z backendem
+        const ADMIN_IDS = [8998575936];
+
+        if (ADMIN_IDS.includes(userId)) {
             document.getElementById('admin-panel').style.display = 'block';
         }
 
-        const botUsername = "Giveaway63bot"; 
-        document.getElementById('ref-link').innerText = `https://t.me/${botUsername}?start=ref_${userId}`;
-        document.getElementById('buy-tier1').href = `https://t.me/${botUsername}?start=buy_tier1`;
-        document.getElementById('buy-tier2').href = `https://t.me/${botUsername}?start=buy_tier2`;
-        document.getElementById('buy-tier3').href = `https://t.me/${botUsername}?start=buy_tier3`;
-
-        function showToast(text) {
-            let toast = document.getElementById("toast");
-            toast.innerText = text;
-            toast.className = "show";
-            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+        // Pobieranie danych użytkownika
+        async function fetchUserData() {
+            try {
+                const response = await fetch(`/api/user/${userId}`);
+                const data = await response.json();
+                document.getElementById('user-points').innerText = data.points ?? 1;
+                document.getElementById('user-refs').innerText = data.referrals_count ?? 0;
+            } catch (e) {
+                console.error("Error fetching user data:", e);
+            }
         }
 
-        async function loadData() {
+        // Pobieranie tabeli wyników
+        async function fetchLeaderboard() {
             try {
-                let res = await fetch(`/api/user/${userId}`);
-                if (res.ok) {
-                    let data = await res.json();
-                    let pts = data.points || 0;
-                    let refs = data.referrals_count || 0;
-                    document.getElementById('stat-tickets').innerText = pts;
-                    document.getElementById('stat-refs').innerText = refs;
-                    document.getElementById('stat-chance').innerText = (pts * 1.5).toFixed(1) + '%';
+                const response = await fetch('/api/leaderboard');
+                const data = await response.json();
+                const listEl = document.getElementById('leaderboard');
+                listEl.innerHTML = '';
+                
+                if (data.length === 0) {
+                    listEl.innerHTML = '<li class="leaderboard-item"><span>No records yet</span><span>-</span></li>';
+                    return;
                 }
 
-                let lbRes = await fetch('/api/leaderboard');
-                if (lbRes.ok) {
-                    let lbData = await lbRes.json();
-                    let html = '';
-                    let userRank = '--';
-                    if (lbData.length === 0) {
-                        html = '<div style="text-align: center; color: var(--hint-color); padding: 6px;">No entries yet.</div>';
-                    } else {
-                        lbData.forEach((row, index) => {
-                            if (row.user_id === userId) {
-                                userRank = `#${index + 1}`;
-                            }
-                            let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
-                            html += `
-                                <div class="leaderboard-item">
-                                    <span><b>${medal}</b> ID: ${row.user_id}</span>
-                                    <span style="color: var(--primary-color); font-weight: 700;">${row.points} pts</span>
-                                </div>
-                            `;
-                        });
-                    }
-                    document.getElementById('leaderboard').innerHTML = html;
-                    document.getElementById('stat-rank').innerText = userRank;
-                    
-                    document.getElementById('prize-pool-list').innerHTML = `
-                        • <b>1x Grand Mystery Box</b><br>
-                        • <b>3x Exclusive E-Book Access</b><br>
-                        • <b>Active Multiplier: 2x Boost Active</b>
-                    `;
-                }
+                data.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'leaderboard-item';
+                    li.innerHTML = `<span>#${index + 1} ID: ${item.user_id}</span><span>🎟 ${item.points}</span>`;
+                    listEl.appendChild(li);
+                });
             } catch (e) {
+                console.error("Error fetching leaderboard:", e);
+            }
+        }
+
+        // Obsługa akcji administratora
+        async function adminAction(actionType) {
+            const statusEl = document.getElementById('admin-status');
+            statusEl.innerText = "Processing...";
+
+            let payload = { user_id: userId };
+
+            if (actionType === 'add_pool') {
+                payload.text = document.getElementById('admin-pool-input').value;
+            } else if (actionType === 'add_tickets') {
+                payload.target_id = parseInt(document.getElementById('admin-target-id').value);
+                payload.count = parseInt(document.getElementById('admin-tickets-count').value);
+            }
+
+            try {
+                const response = await fetch(`/api/admin/${actionType}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                statusEl.innerText = result.message || "Done!";
+                fetchUserData();
+                fetchLeaderboard();
+            } catch (e) {
+                statusEl.innerText = "Error executing action.";
                 console.error(e);
             }
         }
 
-        function copyRefLink() {
-            let text = document.getElementById('ref-link').innerText;
-            navigator.clipboard.writeText(text);
-            showToast('Ref link successfully copied!');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-        }
-
-        async function adminAction(action) {
-            let body = { user_id: userId };
-            if (action === 'add_pool') {
-                body.text = document.getElementById('pool-input').value;
-            } else if (action === 'add_tickets') {
-                body.target_id = document.getElementById('target-id').value;
-                body.count = document.getElementById('tickets-count').value;
-            }
-
-            try {
-                let res = await fetch(`/api/admin/${action}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                let result = await res.json();
-                showToast(result.message || 'Action executed!');
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                loadData();
-            } catch (err) {
-                showToast('Execution error occurred.');
-            }
-        }
-
-        loadData();
+        // Inicjalizacja przy ładowaniu strony
+        fetchUserData();
+        fetchLeaderboard();
     </script>
 </body>
 </html>
