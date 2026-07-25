@@ -3,6 +3,7 @@ import logging
 import sqlite3
 import os
 import random
+import pathlib
 import aiohttp
 from aiohttp import web
 from datetime import datetime, timedelta
@@ -55,9 +56,46 @@ TIERS = {
 async def handle(request):
     return web.Response(text="Bot is running!")
 
+async def handle_mini_app(request):
+    html_path = pathlib.Path(__file__).parent / "templates" / "index.html"
+    if html_path.exists():
+        return web.FileResponse(html_path)
+    return web.Response(text="index.html not found", status=404)
+
+async def api_get_user(request):
+    user_id = int(request.match_info.get("user_id", 0))
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        return web.json_response({"error": "User not found"}, status=404)
+        
+    return web.json_response({
+        "user_id": user_id,
+        "points": row[0],
+        "is_vip": False
+    })
+
+async def api_get_leaderboard(request):
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, tickets FROM users ORDER BY tickets DESC LIMIT 10")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    leaderboard_data = [{"user_id": r[0], "points": r[1]} for r in rows]
+    return web.json_response(leaderboard_data)
+
 async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle)
+    app.router.add_get("/webapp", handle_mini_app)
+    app.router.add_get("/api/user/{user_id}", api_get_user)
+    app.router.add_get("/api/leaderboard", api_get_leaderboard)
+    
     runner = web.AppRunner(app)
     await runner.setup()
     port = int(os.environ.get("PORT", 8080))
@@ -186,7 +224,6 @@ async def check_membership(user_id: int, bot_instance: Bot) -> bool:
     return False
 
 async def route_user_response(message: types.Message, text_to_send: str, reply_markup=None, parse_mode: str = None):
-    """Pomocnicza funkcja: jeśli komenda poszła z grupy, wyślij odpowiedź na PW i powiadom w grupie. Jeśli z PW – odpisz normalnie."""
     if message.chat.type != "private":
         try:
             await bot.send_message(message.from_user.id, text_to_send, reply_markup=reply_markup, parse_mode=parse_mode)
