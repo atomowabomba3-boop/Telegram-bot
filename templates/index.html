@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Undrgroundzone - Giveaway & Store</title>
+    <title>Undrgroundzone - Ultimate Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: var(--tg-theme-bg-color, #090d16);
-            --card-bg: var(--tg-theme-secondary-bg-color, #131b2e);
+            --bg-color: var(--tg-theme-bg-color, #05070b);
+            --card-bg: var(--tg-theme-secondary-bg-color, #0e1422);
             --text-color: var(--tg-theme-text-color, #f8fafc);
-            --hint-color: var(--tg-theme-hint-color, #94a3b8);
+            --hint-color: var(--tg-theme-hint-color, #64748b);
             --primary-color: var(--tg-theme-button-color, #6366f1);
             --primary-text: var(--tg-theme-button-text-color, #ffffff);
-            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #ec4899 100%);
             --danger-color: #ef4444;
             --success-color: #22c55e;
-            --border-color: rgba(255, 255, 255, 0.07);
+            --warning-color: #f59e0b;
+            --border-color: rgba(255, 255, 255, 0.08);
         }
 
         body {
@@ -24,18 +25,18 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 16px;
-            padding-bottom: 50px;
+            padding: 12px;
+            padding-bottom: 60px;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .header h1 {
-            font-size: 26px;
-            margin: 0 0 6px 0;
+            font-size: 24px;
+            margin: 0 0 4px 0;
             background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -43,63 +44,64 @@
 
         .header p {
             color: var(--hint-color);
-            font-size: 13px;
+            font-size: 12px;
             margin: 0;
         }
 
         .card {
             background-color: var(--card-bg);
-            border-radius: 18px;
-            padding: 18px;
-            margin-bottom: 16px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
             border: 1px solid var(--border-color);
         }
 
-        .stats-grid {
+        .grid-4 {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
         }
 
         .stat-box {
             background: rgba(255, 255, 255, 0.02);
-            border-radius: 14px;
-            padding: 14px;
+            border-radius: 12px;
+            padding: 10px;
             text-align: center;
             border: 1px solid var(--border-color);
         }
 
         .stat-box .value {
-            font-size: 22px;
+            font-size: 18px;
             font-weight: 700;
-            margin-top: 4px;
+            margin-top: 2px;
             color: var(--text-color);
         }
 
         .stat-box .label {
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--hint-color);
         }
 
         h3 {
-            font-size: 16px;
+            font-size: 14px;
             margin-top: 0;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn {
             background: var(--primary-color);
             color: var(--primary-text);
             border: none;
-            border-radius: 12px;
-            padding: 12px 16px;
-            font-size: 14px;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 13px;
             font-weight: 600;
             width: 100%;
             cursor: pointer;
@@ -107,71 +109,59 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
             box-sizing: border-box;
             text-decoration: none;
+            margin-top: 6px;
         }
 
-        .btn:active {
-            transform: scale(0.98);
-            opacity: 0.9;
-        }
-
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
         .btn-success { background: var(--success-color); }
         .btn-danger { background: var(--danger-color); }
+        .btn-warning { background: var(--warning-color); color: #000; }
 
         .store-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
         }
 
         .store-item {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 14px;
+            border-radius: 12px;
+            padding: 10px 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .store-info h4 {
-            margin: 0 0 4px 0;
-            font-size: 15px;
-        }
-
-        .store-info p {
-            margin: 0;
-            font-size: 12px;
-            color: var(--hint-color);
-        }
+        .store-info h4 { margin: 0 0 2px 0; font-size: 14px; }
+        .store-info p { margin: 0; font-size: 11px; color: var(--hint-color); }
 
         input {
             width: 100%;
-            padding: 12px;
-            border-radius: 10px;
+            padding: 10px;
+            border-radius: 8px;
             border: 1px solid var(--border-color);
-            background-color: rgba(0, 0, 0, 0.2);
+            background-color: rgba(0, 0, 0, 0.3);
             color: var(--text-color);
-            margin-bottom: 10px;
-            font-size: 14px;
+            margin-bottom: 8px;
+            font-size: 13px;
             box-sizing: border-box;
             outline: none;
         }
 
-        input:focus {
-            border-color: var(--primary-color);
-        }
+        input:focus { border-color: var(--primary-color); }
 
         .ref-box {
-            background: rgba(0, 0, 0, 0.25);
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
             word-break: break-all;
             color: var(--hint-color);
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             border: 1px dashed var(--border-color);
             font-family: monospace;
         }
@@ -180,134 +170,139 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 12px;
+            padding: 8px 10px;
             background: rgba(255, 255, 255, 0.02);
-            border-radius: 10px;
-            font-size: 14px;
+            border-radius: 8px;
+            font-size: 13px;
             margin-bottom: 6px;
         }
 
         #toast {
             visibility: hidden;
-            min-width: 250px;
+            min-width: 220px;
             background-color: #1e293b;
             color: #fff;
             text-align: center;
-            border-radius: 10px;
-            padding: 14px;
+            border-radius: 8px;
+            padding: 12px;
             position: fixed;
             z-index: 1000;
             left: 50%;
-            bottom: 30px;
+            bottom: 20px;
             transform: translateX(-50%);
-            font-size: 14px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            font-size: 13px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
             border: 1px solid var(--border-color);
         }
 
-        #toast.show {
-            visibility: visible;
-            animation: fadein 0.3s, fadeout 0.3s 2.5s;
-        }
-
-        @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
-        @keyframes fadeout { from { bottom: 30px; opacity: 1; } to { bottom: 0; opacity: 0; } }
+        #toast.show { visibility: visible; animation: fadein 0.3s, fadeout 0.3s 2.5s; }
+        @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
+        @keyframes fadeout { from { bottom: 20px; opacity: 1; } to { bottom: 0; opacity: 0; } }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>⚡ Undrgroundzone</h1>
-        <p>Giveaway Dashboard & E-Book Store</p>
+        <h1>⚡ Undrgroundzone Hub</h1>
+        <p>Advanced Giveaway, Store & Tier System</p>
     </div>
 
-    <!-- User Profile Card -->
+    <!-- Comprehensive Stats Grid -->
     <div class="card">
-        <h3>👤 Your Profile</h3>
-        <div class="stats-grid">
+        <h3>📊 Comprehensive Stats</h3>
+        <div class="grid-4">
             <div class="stat-box">
-                <div class="label">Your Tickets</div>
-                <div class="value" id="user-points">0</div>
+                <div class="label">Total Tickets</div>
+                <div class="value" id="stat-tickets">0</div>
             </div>
             <div class="stat-box">
                 <div class="label">Referrals</div>
-                <div class="value" id="user-refs">0</div>
+                <div class="value" id="stat-refs">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="label">Win Chance</div>
+                <div class="value" id="stat-chance">0.0%</div>
+            </div>
+            <div class="stat-box">
+                <div class="label">User Rank</div>
+                <div class="value" id="stat-rank">#--</div>
             </div>
         </div>
     </div>
 
-    <!-- E-book Store Card -->
+    <!-- Active Prize Pool Preview -->
     <div class="card">
-        <h3>📚 E-Book Store</h3>
-        <p style="font-size: 12px; color: var(--hint-color); margin-top: 0; margin-bottom: 12px;">
-            Purchase e-books to instantly boost your giveaway tickets!
-        </p>
+        <h3>🎁 Active Prize Pool</h3>
+        <div id="prize-pool-list" style="font-size: 13px; color: var(--hint-color);">
+            Loading prize pool...
+        </div>
+    </div>
+
+    <!-- E-book Store -->
+    <div class="card">
+        <h3>📚 Ultimate E-Book Store</h3>
         <div class="store-grid">
             <div class="store-item">
                 <div class="store-info">
-                    <h4>Ebook Tier 1</h4>
-                    <p>+50 Tickets • $2.00</p>
+                    <h4>Starter Tier</h4>
+                    <p>+50 Tickets + Bonus • $2.00</p>
                 </div>
-                <a href="#" id="buy-tier1" class="btn" style="width: auto; padding: 8px 14px; font-size: 13px;">Buy</a>
+                <a href="#" id="buy-tier1" class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;">Get</a>
             </div>
             <div class="store-item">
                 <div class="store-info">
-                    <h4>Ebook Tier 2</h4>
-                    <p>+200 Tickets • $5.00</p>
+                    <h4>Pro Tier</h4>
+                    <p>+200 Tickets + VIP • $5.00</p>
                 </div>
-                <a href="#" id="buy-tier2" class="btn" style="width: auto; padding: 8px 14px; font-size: 13px;">Buy</a>
+                <a href="#" id="buy-tier2" class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;">Get</a>
             </div>
             <div class="store-item">
                 <div class="store-info">
-                    <h4>Ebook Tier 3</h4>
-                    <p>+500 Tickets • $10.00</p>
+                    <h4>Elite Master Tier</h4>
+                    <p>+500 Tickets + Mega Boost • $10.00</p>
                 </div>
-                <a href="#" id="buy-tier3" class="btn" style="width: auto; padding: 8px 14px; font-size: 13px;">Buy</a>
+                <a href="#" id="buy-tier3" class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;">Get</a>
             </div>
         </div>
     </div>
 
-    <!-- Referral Program Card -->
+    <!-- Referral Program -->
     <div class="card">
-        <h3>🔗 Referral Program</h3>
-        <p style="font-size: 12px; color: var(--hint-color); margin-top: 0; margin-bottom: 10px;">
-            Share your unique link with friends to earn +1 ticket boost per referral:
-        </p>
+        <h3>🔗 Referral Engine</h3>
         <div class="ref-box" id="ref-link">Generating link...</div>
-        <button class="btn" onclick="copyRefLink()">📋 Copy Invite Link</button>
+        <button class="btn" onclick="copyRefLink()">📋 Copy Ref Link</button>
     </div>
 
-    <!-- Leaderboard Card -->
+    <!-- Live Leaderboard -->
     <div class="card">
-        <h3>🏆 Leaderboard</h3>
+        <h3>🏆 Live Global Leaderboard</h3>
         <div id="leaderboard">
-            <div style="text-align: center; color: var(--hint-color); padding: 10px;">Loading leaderboard...</div>
+            <div style="text-align: center; color: var(--hint-color); padding: 8px;">Loading leaderboard...</div>
         </div>
     </div>
 
-    <!-- Admin Panel (Visible only for admin ID: 8998575936) -->
+    <!-- Admin Control Panel -->
     <div id="admin-panel" class="card" style="display: none; border-color: var(--primary-color);">
-        <h3>🛠 Admin Control Panel</h3>
+        <h3>🛠 Master Admin Control Panel</h3>
         
-        <button class="btn btn-success" style="margin-bottom: 12px;" onclick="adminAction('start')">🚀 Start New Giveaway</button>
+        <button class="btn btn-success" onclick="adminAction('start')">🚀 Broadcast & Start Giveaway</button>
         
-        <div style="margin-bottom: 12px;">
-            <label style="font-size: 11px; color: var(--hint-color); text-transform: uppercase;">Add Prize Pool:</label>
-            <input type="text" id="pool-input" placeholder="e.g. $15.00 or Custom Reward">
-            <button class="btn" onclick="adminAction('add_pool')">➕ Add to Pool</button>
+        <div style="margin-top: 10px;">
+            <label style="font-size: 10px; color: var(--hint-color); text-transform: uppercase;">Add Prize to Pool:</label>
+            <input type="text" id="pool-input" placeholder="e.g. $50 Steam GiftCard">
+            <button class="btn btn-warning" onclick="adminAction('add_pool')">➕ Push Prize to Pool</button>
         </div>
 
-        <div style="margin-bottom: 12px;">
-            <label style="font-size: 11px; color: var(--hint-color); text-transform: uppercase;">Manage User Tickets:</label>
+        <div style="margin-top: 10px;">
+            <label style="font-size: 10px; color: var(--hint-color); text-transform: uppercase;">User Ticket Management:</label>
             <input type="text" id="target-id" placeholder="Telegram User ID">
-            <input type="number" id="tickets-count" placeholder="Tickets count (e.g. 10 or -5)">
-            <button class="btn" onclick="adminAction('add_tickets')">🎟 Modify Tickets</button>
+            <input type="number" id="tickets-count" placeholder="Ticket amount (+ or -)">
+            <button class="btn" onclick="adminAction('add_tickets')">🎟 Execute Ticket Adjustment</button>
         </div>
 
-        <button class="btn btn-danger" onclick="adminAction('winners')">🎲 Draw Winners Now</button>
+        <button class="btn btn-danger" style="margin-top: 10px;" onclick="adminAction('winners')">🎲 Execute Random Winners Draw</button>
     </div>
 
-    <!-- Toast Notification -->
     <div id="toast">Notification</div>
 
     <script>
@@ -323,7 +318,6 @@
             document.getElementById('admin-panel').style.display = 'block';
         }
 
-        // Fix bot username lookup for referral & store links
         const botUsername = "Giveaway63bot"; 
         document.getElementById('ref-link').innerText = `https://t.me/${botUsername}?start=ref_${userId}`;
         document.getElementById('buy-tier1').href = `https://t.me/${botUsername}?start=buy_tier1`;
@@ -342,18 +336,25 @@
                 let res = await fetch(`/api/user/${userId}`);
                 if (res.ok) {
                     let data = await res.json();
-                    document.getElementById('user-points').innerText = data.points || 0;
-                    document.getElementById('user-refs').innerText = data.referrals_count || 0;
+                    let pts = data.points || 0;
+                    let refs = data.referrals_count || 0;
+                    document.getElementById('stat-tickets').innerText = pts;
+                    document.getElementById('stat-refs').innerText = refs;
+                    document.getElementById('stat-chance').innerText = (pts * 1.5).toFixed(1) + '%';
                 }
 
                 let lbRes = await fetch('/api/leaderboard');
                 if (lbRes.ok) {
                     let lbData = await lbRes.json();
                     let html = '';
+                    let userRank = '--';
                     if (lbData.length === 0) {
-                        html = '<div style="text-align: center; color: var(--hint-color); padding: 10px;">No entries on leaderboard yet.</div>';
+                        html = '<div style="text-align: center; color: var(--hint-color); padding: 6px;">No entries yet.</div>';
                     } else {
                         lbData.forEach((row, index) => {
+                            if (row.user_id === userId) {
+                                userRank = `#${index + 1}`;
+                            }
                             let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
                             html += `
                                 <div class="leaderboard-item">
@@ -364,6 +365,13 @@
                         });
                     }
                     document.getElementById('leaderboard').innerHTML = html;
+                    document.getElementById('stat-rank').innerText = userRank;
+                    
+                    document.getElementById('prize-pool-list').innerHTML = `
+                        • <b>1x Grand Mystery Box</b><br>
+                        • <b>3x Exclusive E-Book Access</b><br>
+                        • <b>Active Multiplier: 2x Boost Active</b>
+                    `;
                 }
             } catch (e) {
                 console.error(e);
@@ -373,10 +381,8 @@
         function copyRefLink() {
             let text = document.getElementById('ref-link').innerText;
             navigator.clipboard.writeText(text);
-            showToast('Referral link copied to clipboard!');
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.notificationOccurred('success');
-            }
+            showToast('Ref link successfully copied!');
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }
 
         async function adminAction(action) {
@@ -395,13 +401,11 @@
                     body: JSON.stringify(body)
                 });
                 let result = await res.json();
-                showToast(result.message || 'Action executed successfully!');
-                if (tg.HapticFeedback) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                }
+                showToast(result.message || 'Action executed!');
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                 loadData();
             } catch (err) {
-                showToast('An error occurred while executing the action.');
+                showToast('Execution error occurred.');
             }
         }
 
