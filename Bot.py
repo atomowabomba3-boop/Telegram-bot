@@ -176,6 +176,26 @@ def add_to_giveaway_pool_raw(amount: float):
     conn.close()
     return current_pool
 
+async def check_membership(user_id: int, bot_instance: Bot) -> bool:
+    try:
+        member = await bot_instance.get_chat_member(chat_id=CHAT_ID, user_id=user_id)
+        if member.status in ['member', 'administrator', 'creator']:
+            return True
+    except Exception as e:
+        logging.error(f"Błąd sprawdzania członkostwa dla {user_id}: {e}")
+    return False
+
+async def route_user_response(message: types.Message, text_to_send: str, reply_markup=None, parse_mode: str = None):
+    """Pomocnicza funkcja: jeśli komenda poszła z grupy, wyślij odpowiedź na PW i powiadom w grupie. Jeśli z PW – odpisz normalnie."""
+    if message.chat.type != "private":
+        try:
+            await bot.send_message(message.from_user.id, text_to_send, reply_markup=reply_markup, parse_mode=parse_mode)
+            await message.answer(f"@{message.from_user.username or message.from_user.first_name}, sprawdziłem! Odpowiedź została wysłana do Ciebie w wiadomości prywatnej (DM). 📬")
+        except Exception:
+            await message.answer(f"@{message.from_user.username or message.from_user.first_name}, nie mogłem wysłać Ci wiadomości prywatnej. Odblokuj bota @Giveaway63bot! ⚠️")
+    else:
+        await message.answer(text_to_send, reply_markup=reply_markup, parse_mode=parse_mode)
+
 async def update_all_active_giveaways(bot: Bot):
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
@@ -212,7 +232,13 @@ async def update_all_active_giveaways(bot: Bot):
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `{participants_count}` people\n"
             f"⏳ **Ends in:** `{time_left}`\n\n"
-            "💡 *Tip: Inviting friends via referrals and buying e-books increases your chances by boosting your tickets!*\n\n"
+            "⚠️ **WARNING:** You must be a member of the group to enter and stay in the giveaway! If you leave the group, you will automatically be disqualified.\n\n"
+            "⚠️ **IMPORTANT:** If you blocked the bot, make sure to unblock it!\n"
+            "​👉 @Giveaway63bot\n\n"
+            "​🔍 **How it works?**\n"
+            "​🎟️ Everyone starts with 1 free ticket!\n"
+            "​👥 Earn more tickets: Invite friends using your custom referral link.\n"
+            "​📚 Buy e-books: Every purchase gives you a massive ticket boost to increase your chances!\n\n"
             "Click the button below to participate!"
         )
         try:
@@ -266,10 +292,13 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
 
     ticket_pool = []
     for uid in participants:
-        cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (uid,))
-        res = cursor.fetchone()
-        user_tickets = res[0] if res else 1
-        ticket_pool.extend([uid] * user_tickets)
+        if await check_membership(uid, bot):
+            cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (uid,))
+            res = cursor.fetchone()
+            user_tickets = res[0] if res else 1
+            ticket_pool.extend([uid] * user_tickets)
+        else:
+            cursor.execute("DELETE FROM giveaway_participants WHERE user_id = ?", (uid,))
 
     actual_winners_count = min(winners_count, len(set(ticket_pool))) if ticket_pool else 0
     winners = []
@@ -321,7 +350,6 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         
     await bot.send_message(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, text=result_text, parse_mode="Markdown")
 
-    # Send private summary to all admins with direct links to winners
     admin_summary_text = "\n".join(admin_private_lines) + f"\n\n💰 **Prize per winner:** `${prize_per_winner:.2f} USD`"
     for admin_id in ADMIN_IDS:
         try:
@@ -418,16 +446,15 @@ async def cmd_start(message: types.Message):
                         [InlineKeyboardButton(text=f"💳 PAY ${tier_data['price']} IN {asset}", url=invoice_url)]
                     ])
                     
-                    await message.answer(
+                    pay_text = (
                         f"🛒 **Generating payment for {tier_data['name']}**\n\n"
                         f"🎟 **Included boost:** {tier_data['tickets']} tickets\n"
                         f"💰 **Amount:** ${tier_data['price']} USD (equivalent in {asset})\n\n"
-                        "Click the button below to complete your payment:",
-                        reply_markup=pay_keyboard,
-                        parse_mode="Markdown"
+                        "Click the button below to complete your payment:"
                     )
+                    await route_user_response(message, pay_text, reply_markup=pay_keyboard, parse_mode="Markdown")
                 except Exception as e:
-                    await message.answer("⚠️ An error occurred while generating payment. Please try again later.")
+                    await route_user_response(message, "⚠️ An error occurred while generating payment. Please try again later.")
                     logging.error(f"CryptoPay error: {e}")
                 return
         
@@ -447,11 +474,8 @@ async def cmd_start(message: types.Message):
                     InlineKeyboardButton(text="TRX", url=f"https://t.me/{bot_username}?start={p_key}_TRX")
                 ]
             ])
-            await message.answer(
-                f"💱 **Choose cryptocurrency for {TIERS[clean_payload]['name']} (${TIERS[clean_payload]['price']}):**",
-                reply_markup=select_keyboard,
-                parse_mode="Markdown"
-            )
+            select_text = f"💱 **Choose cryptocurrency for {TIERS[clean_payload]['name']} (${TIERS[clean_payload]['price']}):**"
+            await route_user_response(message, select_text, reply_markup=select_keyboard, parse_mode="Markdown")
             return
 
     tickets = get_or_create_user(user_id)
@@ -460,7 +484,7 @@ async def cmd_start(message: types.Message):
         f"Your current ticket balance: {tickets}\n\n"
         "Use /help to see available commands."
     )
-    await message.answer(welcome_text)
+    await route_user_response(message, welcome_text)
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
@@ -471,13 +495,13 @@ async def cmd_help(message: types.Message):
         "📚 /ebooks - View and download your purchased e-books\n"
         "❓ /help - Show help"
     )
-    await message.answer(help_text, parse_mode="Markdown")
+    await route_user_response(message, help_text, parse_mode="Markdown")
 
 @dp.message(Command("tickets"))
 async def cmd_tickets(message: types.Message):
     user_id = message.from_user.id
     tickets = get_or_create_user(user_id)
-    await message.answer(f"Your current ticket balance: {tickets}")
+    await route_user_response(message, f"Your current ticket balance: {tickets}")
 
 @dp.message(Command("ref"))
 async def cmd_ref(message: types.Message):
@@ -498,13 +522,13 @@ async def cmd_ref(message: types.Message):
         conn.commit()
         conn.close()
         
-        await message.answer(
+        ref_text = (
             f"🔗 **Your permanent invite link:**\n{link}\n\n"
-            "Share this link with your friends! When someone joins using it, you get +1 ticket boost.",
-            parse_mode="Markdown"
+            "Share this link with your friends! When someone joins using it, you get +1 ticket boost."
         )
+        await route_user_response(message, ref_text, parse_mode="Markdown")
     except Exception as e:
-        await message.answer("⚠️ Error generating link. Make sure the bot is an administrator in the group with invite permissions.")
+        await route_user_response(message, "⚠️ Error generating link. Make sure the bot is an administrator in the group with invite permissions.")
         logging.error(f"Invite link error: {e}")
 
 @dp.message(Command("ebooks"))
@@ -517,10 +541,11 @@ async def cmd_ebooks(message: types.Message):
     conn.close()
     
     if not ebooks:
-        await message.answer("📚 You don't have any e-books yet. Check out the store in our group!")
+        await route_user_response(message, "📚 You don't have any e-books yet. Check out the store in our group!")
     else:
         ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
-        await message.answer(f"📚 **Your purchased e-books:**\n\n{ebooks_list}\n\nSending your files...", parse_mode="Markdown")
+        summary_text = f"📚 **Your purchased e-books:**\n\n{ebooks_list}\n\nSending your files..."
+        await route_user_response(message, summary_text, parse_mode="Markdown")
         
         name_to_file = {data["name"]: data["file"] for data in TIERS.values()}
         sent_files = set()
@@ -530,7 +555,8 @@ async def cmd_ebooks(message: types.Message):
             
             if filename and filename not in sent_files:
                 if os.path.exists(filename):
-                    await message.answer_document(
+                    await bot.send_document(
+                        chat_id=user_id,
                         document=FSInputFile(filename),
                         caption=f"🎁 Here is your file: {ebook_name}"
                     )
@@ -591,6 +617,52 @@ async def cmd_add_tickets(message: types.Message):
         f"🎟 User's new ticket balance: **{updated_tickets}**",
         parse_mode="Markdown"
     )
+
+@dp.message(Command("addtogroup"))
+async def cmd_add_to_group(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⚠️ Unauthorized.")
+        return
+
+    args = message.text.split()
+    if len(args) < 2 or not args[1].isdigit():
+        await message.answer("⚠️ Usage: `/addtogroup <user_id>` (e.g., `/addtogroup 123456789`)", parse_mode="Markdown")
+        return
+
+    target_user_id = int(args[1])
+
+    conn = sqlite3.connect("bot_database.db", timeout=30.0)
+    cursor = conn.cursor()
+    cursor.execute("SELECT message_id FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
+    active_gw = cursor.fetchone()
+    
+    if not active_gw:
+        conn.close()
+        await message.answer("⚠️ No active giveaway found to add the user to.")
+        return
+    
+    is_member = await check_membership(target_user_id, bot)
+    if not is_member:
+        conn.close()
+        await message.answer(f"⚠️ User `{target_user_id}` is not a member of the group `{CHAT_ID}` or the bot cannot access their status.", parse_mode="Markdown")
+        return
+
+    cursor.execute("SELECT 1 FROM giveaway_participants WHERE user_id = ?", (target_user_id,))
+    already_joined = cursor.fetchone()
+
+    if already_joined:
+        conn.close()
+        await message.answer(f"ℹ️ User `{target_user_id}` is already participating in the active giveaway.", parse_mode="Markdown")
+        return
+
+    cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (target_user_id,))
+    conn.commit()
+    conn.close()
+
+    get_or_create_user(target_user_id)
+    await update_all_active_giveaways(bot)
+
+    await message.answer(f"✅ **[ADMIN]** User `{target_user_id}` has been successfully added to the active giveaway!", parse_mode="Markdown")
 
 @dp.message(Command("extendgiveaway"))
 async def cmd_extend_giveaway(message: types.Message):
@@ -844,6 +916,15 @@ async def cmd_end_giveaway(message: types.Message):
 @dp.callback_query(lambda c: c.data == "join_giveaway")
 async def process_join_giveaway(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
+    
+    if not await check_membership(user_id, bot):
+        await bot.answer_callback_query(
+            callback_query.id, 
+            text="⚠️ You must be a member of the group to join the giveaway!", 
+            show_alert=True
+        )
+        return
+
     get_or_create_user(user_id)
     
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
