@@ -15,12 +15,11 @@ from aiogram.types import BotCommand, ChatMemberUpdated, InlineKeyboardMarkup, I
 TOKEN = "8795322916:AAHg7sfezoa-xTYk1Dp1xRW8xBwJnY1FAts"
 CRYPTO_PAY_TOKEN = "612964:AAtkz79Sjrh5hks8knampljxXpnzRpS94Hz"
 CHAT_ID = "@Undrgroundzone"
-TOPIC_ID = 2          # Topic for giveaways and results
-STORE_TOPIC_ID = 3    # Topic dedicated exclusively to e-book store info
+TOPIC_ID = 2          
+STORE_TOPIC_ID = 3    
 
 ADMIN_IDS = [8998575936]
 
-# Flag preventing multiple draws from running simultaneously
 is_drawing_in_progress = False
 
 bot = Bot(token=TOKEN)
@@ -71,16 +70,20 @@ async def api_get_user(request):
     
     cursor.execute("SELECT COUNT(*) FROM referral_history WHERE inviter_id = ?", (user_id,))
     ref_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
+    pool_row = cursor.fetchone()
+    raw_pool = pool_row[0] if pool_row else 0.0
+    pool_amount = raw_pool if raw_pool >= 15.0 else 15.0
+
     conn.close()
     
-    if not row:
-        return web.json_response({"points": 1, "referrals_count": ref_count})
-        
+    tickets = row[0] if row else 1
     return web.json_response({
         "user_id": user_id,
-        "points": row[0],
+        "points": tickets,
         "referrals_count": ref_count,
-        "is_vip": False
+        "pool_amount": pool_amount
     })
 
 async def api_get_leaderboard(request):
@@ -88,10 +91,30 @@ async def api_get_leaderboard(request):
     cursor = conn.cursor()
     cursor.execute("SELECT user_id, tickets FROM users ORDER BY tickets DESC LIMIT 10")
     rows = cursor.fetchall()
+    
+    cursor.execute("""
+        SELECT ended_at, winners_text, winners_count 
+        FROM active_giveaways 
+        WHERE status = 'ended' AND ended_at IS NOT NULL 
+        ORDER BY ended_at DESC 
+        LIMIT 5
+    """)
+    past_winners = cursor.fetchall()
     conn.close()
     
     leaderboard_data = [{"user_id": r[0], "points": r[1]} for r in rows]
-    return web.json_response(leaderboard_data)
+    winners_data = []
+    for pw in past_winners:
+        winners_data.append({
+            "ended_at": pw[0],
+            "winners_text": pw[1],
+            "winners_count": pw[2]
+        })
+
+    return web.json_response({
+        "leaderboard": leaderboard_data,
+        "past_winners": winners_data
+    })
 
 async def api_admin_action(request):
     try:
@@ -106,7 +129,6 @@ async def api_admin_action(request):
     action = request.match_info.get("action", "")
 
     if action == "start":
-        # Automatyczne uruchomienie givawayu domyślnie na 3 zwycięzców i 24 godziny
         success = await trigger_start_giveaway_internal(3, 24.0)
         if success:
             return web.json_response({"message": "Giveaway successfully started!"})
@@ -115,10 +137,8 @@ async def api_admin_action(request):
 
     elif action == "add_pool":
         text_val = data.get("text", "")
-        # Próba wyciągnięcia liczby z tekstu lub sparsowania bezpośrednio
         try:
-            # Usuwamy np. "$", napisy itp., zostawiając cyfry i kropkę
-            cleaned = "".join([c for c in text_val if c.isdigit() or c == "."])
+            cleaned = "".join([c for c in str(text_val) if c.isdigit() or c == "."])
             amount = float(cleaned) if cleaned else 15.0
         except ValueError:
             amount = 15.0
@@ -339,13 +359,7 @@ async def update_all_active_giveaways(bot: Bot):
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `{participants_count}` people\n"
             f"⏳ **Ends in:** `{time_left}`\n\n"
-            "⚠️ **WARNING:** You must be a member of the group to enter and stay in the giveaway! If you leave the group, you will automatically be disqualified.\n\n"
-            "⚠️ **IMPORTANT:** If you blocked the bot, make sure to unblock it!\n"
-            "​👉 @Giveaway63bot\n\n"
-            "​🔍 **How it works?**\n"
-            "​🎟️ Everyone starts with 1 free ticket!\n"
-            "​👥 Earn more tickets: Invite friends using your custom referral link.\n"
-            "​📚 Buy e-books: Every purchase gives you a massive ticket boost to increase your chances!\n\n"
+            "⚠️ **WARNING:** You must be a member of the group to enter and stay in the giveaway!\n\n"
             "Click the button below to participate!"
         )
         try:
@@ -425,12 +439,12 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
             member = await bot.get_chat_member(chat_id=CHAT_ID, user_id=w_id)
             name = member.user.full_name
             winners_mentions_public.append(f"• {name}")
-            winners_db_records.append(f"• [{name}](tg://user?id={w_id})")
-            admin_private_lines.append(f"• [{name}](tg://user?id={w_id}) – [Direct Message](tg://user?id={w_id})")
+            winners_db_records.append(f"• {name}")
+            admin_private_lines.append(f"• {name} (ID: {w_id})")
         except Exception:
             winners_mentions_public.append(f"• User ID: {w_id}")
-            winners_db_records.append(f"• User ID: `{w_id}`")
-            admin_private_lines.append(f"• User ID: `{w_id}` – [Direct Message](tg://user?id={w_id})")
+            winners_db_records.append(f"• User ID: {w_id}")
+            admin_private_lines.append(f"• User ID: {w_id}")
 
     winners_public_text = "\n".join(winners_mentions_public) if winners_mentions_public else "No winners"
     winners_stored_text = "\n".join(winners_db_records) if winners_db_records else "No winners"
@@ -445,9 +459,9 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
     result_text = (
         "🎉 **UNDRGROUNDZONE GIVEAWAY RESULTS** 🎉\n\n"
         f"💰 **Total Distributed Pool:** `${pool_amount:.2f} USD`\n"
-        f"🏆 **Prize for each of the {len(winners)} winners:** **`${prize_per_winner:.2f} USD`**\n\n"
+        f"🏆 **Prize for each winner:** **`${prize_per_winner:.2f} USD`**\n\n"
         f"🔥 **Winners:**\n{winners_public_text}\n\n"
-        "Congratulations! The giveaway has successfully concluded."
+        "Congratulations!"
     )
 
     try:
@@ -456,14 +470,6 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
         pass
         
     await bot.send_message(chat_id=CHAT_ID, message_thread_id=TOPIC_ID, text=result_text, parse_mode="Markdown")
-
-    admin_summary_text = "\n".join(admin_private_lines) + f"\n\n💰 **Prize per winner:** `${prize_per_winner:.2f} USD`"
-    for admin_id in ADMIN_IDS:
-        try:
-            await bot.send_message(chat_id=admin_id, text=admin_summary_text, parse_mode="Markdown")
-        except Exception:
-            pass
-
     is_drawing_in_progress = False
 
 async def giveaway_timer_task(bot: Bot, msg_id: int, duration_hours: float, winners_count: int):
@@ -519,7 +525,6 @@ async def trigger_start_giveaway_internal(winners_count: int, duration_hours: fl
             f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
             f"👥 **Participants:** `0` people\n"
             f"⏳ **Ends in:** `{time_str}`\n\n"
-            "💡 *Tip: Inviting friends via referrals and buying e-books increases your chances by boosting your tickets!*\n\n"
             "Click the button below to participate!"
         )
 
@@ -543,46 +548,6 @@ async def trigger_start_giveaway_internal(winners_count: int, duration_hours: fl
         is_drawing_in_progress = False
         logging.error(f"Error starting giveaway: {e}")
         return False
-
-@dp.message(Command("winners"))
-async def cmd_winners(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT ended_at, winners_text, winners_count 
-        FROM active_giveaways 
-        WHERE status = 'ended' AND ended_at IS NOT NULL 
-        ORDER BY ended_at DESC 
-        LIMIT 10
-    """)
-    past_giveaways = cursor.fetchall()
-    conn.close()
-
-    if not past_giveaways:
-        await message.answer("📚 No past giveaway records found.")
-        return
-
-    response_lines = ["🏆 **Past Giveaway Winners History:**\n"]
-    for ended_at_str, winners_text, winners_count in past_giveaways:
-        try:
-            dt = datetime.fromisoformat(ended_at_str)
-            date_formatted = dt.strftime("%Y-%m-%d %H:%M")
-        except Exception:
-            date_formatted = ended_at_str
-
-        response_lines.append(f"📅 **Date:** `{date_formatted}`")
-        response_lines.append(f"👥 **Winners ({winners_count}):**\n{winners_text}\n")
-
-    full_response = "\n".join(response_lines)
-    
-    if len(full_response) > 4000:
-        full_response = full_response[:4000] + "\n...(truncated)"
-
-    await message.answer(full_response, parse_mode="Markdown")
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
@@ -615,15 +580,14 @@ async def cmd_start(message: types.Message):
                     pay_text = (
                         f"🛒 **Generating payment for {tier_data['name']}**\n\n"
                         f"🎟 **Included boost:** {tier_data['tickets']} tickets\n"
-                        f"💰 **Amount:** ${tier_data['price']} USD (equivalent in {asset})\n\n"
-                        "Click the button below to complete your payment:"
+                        f"💰 **Amount:** ${tier_data['price']} USD\n\n"
+                        "Click below to pay:"
                     )
                     await route_user_response(message, pay_text, reply_markup=pay_keyboard, parse_mode="Markdown")
                 except Exception as e:
-                    await route_user_response(message, "⚠️ An error occurred while generating payment. Please try again later.")
-                    logging.error(f"CryptoPay error: {e}")
+                    await route_user_response(message, "⚠️ Error generating payment.")
                 return
-        
+
         clean_payload = payload.replace("buy_", "")
         if clean_payload in TIERS:
             bot_username = (await bot.get_me()).username
@@ -633,11 +597,6 @@ async def cmd_start(message: types.Message):
                     InlineKeyboardButton(text="USDT", url=f"https://t.me/{bot_username}?start={p_key}_USDT"),
                     InlineKeyboardButton(text="TON", url=f"https://t.me/{bot_username}?start={p_key}_TON"),
                     InlineKeyboardButton(text="BTC", url=f"https://t.me/{bot_username}?start={p_key}_BTC")
-                ],
-                [
-                    InlineKeyboardButton(text="ETH", url=f"https://t.me/{bot_username}?start={p_key}_ETH"),
-                    InlineKeyboardButton(text="LTC", url=f"https://t.me/{bot_username}?start={p_key}_LTC"),
-                    InlineKeyboardButton(text="TRX", url=f"https://t.me/{bot_username}?start={p_key}_TRX")
                 ]
             ])
             select_text = f"💱 **Choose cryptocurrency for {TIERS[clean_payload]['name']} (${TIERS[clean_payload]['price']}):**"
@@ -645,534 +604,40 @@ async def cmd_start(message: types.Message):
             return
 
     tickets = get_or_create_user(user_id)
-    welcome_text = (
-        "👋 Welcome to the Undrgroundzone System!\n\n"
-        f"Your current ticket balance: {tickets}\n\n"
-        "Use /help to see available commands."
-    )
-    await route_user_response(message, welcome_text)
-
-@dp.message(Command("help"))
-async def cmd_help(message: types.Message):
-    help_text = (
-        "🤖 **Available Commands:**\n\n"
-        "📊 /tickets - Check your tickets\n"
-        "🔗 /ref - Get your invite link\n"
-        "📚 /ebooks - View and download your purchased e-books\n"
-        "❓ /help - Show help"
-    )
-    await route_user_response(message, help_text, parse_mode="Markdown")
-
-@dp.message(Command("tickets"))
-async def cmd_tickets(message: types.Message):
-    user_id = message.from_user.id
-    tickets = get_or_create_user(user_id)
-    await route_user_response(message, f"Your current ticket balance: {tickets}")
-
-@dp.message(Command("ref"))
-async def cmd_ref(message: types.Message):
-    user_id = message.from_user.id
-    get_or_create_user(user_id)
-    
-    try:
-        chat = await bot.get_chat(CHAT_ID)
-        link = chat.invite_link
-        
-        if not link:
-            new_invite = await bot.export_chat_invite_link(chat_id=CHAT_ID)
-            link = new_invite
-        
-        conn = sqlite3.connect("bot_database.db", timeout=30.0)
-        cursor = conn.cursor()
-        cursor.execute("INSERT OR REPLACE INTO invite_links (invite_link, user_id) VALUES (?, ?)", (link, user_id))
-        conn.commit()
-        conn.close()
-        
-        ref_text = (
-            f"🔗 **Your permanent invite link:**\n{link}\n\n"
-            "Share this link with your friends! When someone joins using it, you get +1 ticket boost."
-        )
-        await route_user_response(message, ref_text, parse_mode="Markdown")
-    except Exception as e:
-        await route_user_response(message, "⚠️ Error generating link. Make sure the bot is an administrator in the group with invite permissions.")
-        logging.error(f"Invite link error: {e}")
-
-@dp.message(Command("ebooks"))
-async def cmd_ebooks(message: types.Message):
-    user_id = message.from_user.id
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT ebook_name FROM user_ebooks WHERE user_id = ?", (user_id,))
-    ebooks = cursor.fetchall()
-    conn.close()
-    
-    if not ebooks:
-        await route_user_response(message, "📚 You don't have any e-books yet. Check out the store in our group!")
-    else:
-        ebooks_list = "\n".join([f"• {ebook[0]}" for ebook in ebooks])
-        summary_text = f"📚 **Your purchased e-books:**\n\n{ebooks_list}\n\nSending your files..."
-        await route_user_response(message, summary_text, parse_mode="Markdown")
-        
-        name_to_file = {data["name"]: data["file"] for data in TIERS.values()}
-        sent_files = set()
-        for ebook in ebooks:
-            ebook_name = ebook[0]
-            filename = name_to_file.get(ebook_name)
-            
-            if filename and filename not in sent_files:
-                if os.path.exists(filename):
-                    await bot.send_document(
-                        chat_id=user_id,
-                        document=FSInputFile(filename),
-                        caption=f"🎁 Here is your file: {ebook_name}"
-                    )
-                    sent_files.add(filename)
-
-@dp.message(Command("add_pool"))
-async def cmd_add_pool(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-        
-    args = message.text.split()
-    if len(args) < 2:
-        await message.answer("⚠️ Usage: `/add_pool <amount>` (e.g., `/add_pool 15`)", parse_mode="Markdown")
-        return
-        
-    try:
-        amount_to_add = float(args[1])
-    except ValueError:
-        await message.answer("⚠️ Please provide a valid number (e.g., `10` or `5.50`).", parse_mode="Markdown")
-        return
-        
-    new_raw_pool = add_to_giveaway_pool_raw(amount_to_add)
-    await update_all_active_giveaways(bot)
-    
-    await message.answer(
-        f"✅ **[ADMIN]** Successfully added `${amount_to_add:.2f} USD` to the pool!\n"
-        f"📊 Current raw pool in database: `${new_raw_pool:.2f} USD`",
-        parse_mode="Markdown"
-    )
-
-@dp.message(Command("add_tickets"))
-async def cmd_add_tickets(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-        
-    args = message.text.split()
-    if len(args) < 3 or not args[1].isdigit() or not args[2].isdigit():
-        await message.answer("⚠️ Usage: `/add_tickets <user_id> <tickets_count>` (e.g., `/add_tickets 8998575936 10`)", parse_mode="Markdown")
-        return
-        
-    target_user_id = int(args[1])
-    tickets_to_add = int(args[2])
-    
-    get_or_create_user(target_user_id)
-    
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (tickets_to_add, target_user_id))
-    cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (target_user_id,))
-    updated_tickets = cursor.fetchone()[0]
-    conn.commit()
-    conn.close()
-    
-    await message.answer(
-        f"✅ **[ADMIN]** Successfully added `+{tickets_to_add}` tickets to user `{target_user_id}`!\n"
-        f"🎟 User's new ticket balance: **{updated_tickets}**",
-        parse_mode="Markdown"
-    )
-
-@dp.message(Command("addtogroup"))
-async def cmd_add_to_group(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    args = message.text.split()
-    if len(args) < 2 or not args[1].isdigit():
-        await message.answer("⚠️ Usage: `/addtogroup <user_id>` (e.g., `/addtogroup 123456789`)", parse_mode="Markdown")
-        return
-
-    target_user_id = int(args[1])
-
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("SELECT message_id FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
-    active_gw = cursor.fetchone()
-    
-    if not active_gw:
-        conn.close()
-        await message.answer("⚠️ No active giveaway found to add the user to.")
-        return
-    
-    is_member = await check_membership(target_user_id, bot)
-    if not is_member:
-        conn.close()
-        await message.answer(f"⚠️ User `{target_user_id}` is not a member of the group `{CHAT_ID}` or the bot cannot access their status.", parse_mode="Markdown")
-        return
-
-    cursor.execute("SELECT 1 FROM giveaway_participants WHERE user_id = ?", (target_user_id,))
-    already_joined = cursor.fetchone()
-
-    if already_joined:
-        conn.close()
-        await message.answer(f"ℹ️ User `{target_user_id}` is already participating in the active giveaway.", parse_mode="Markdown")
-        return
-
-    cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (target_user_id,))
-    conn.commit()
-    conn.close()
-
-    get_or_create_user(target_user_id)
-    await update_all_active_giveaways(bot)
-
-    await message.answer(f"✅ **[ADMIN]** User `{target_user_id}` has been successfully added to the active giveaway!", parse_mode="Markdown")
-
-@dp.message(Command("extendgiveaway"))
-async def cmd_extend_giveaway(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    args = message.text.split()
-    if len(args) < 2:
-        await message.answer("⚠️ Usage: `/extendgiveaway <hours>` (e.g., `/extendgiveaway 5` or `/extendgiveaway -2`)", parse_mode="Markdown")
-        return
-
-    try:
-        hours_change = float(args[1])
-    except ValueError:
-        await message.answer("⚠️ Please provide a valid number of hours (e.g., `3` or `-1.5`).", parse_mode="Markdown")
-        return
-
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("SELECT message_id, winners_count, ends_at FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
-    active_gw = cursor.fetchone()
-    conn.close()
-
-    if not active_gw:
-        await message.answer("⚠️ No active giveaway to modify.")
-        return
-
-    msg_id, winners_count, ends_at_str = active_gw
-    current_ends_at = datetime.fromisoformat(ends_at_str)
-    new_ends_at = current_ends_at + timedelta(hours=hours_change)
-
-    now = datetime.now()
-    if new_ends_at <= now:
-        await finish_giveaway_automatically(bot, msg_id, winners_count)
-        await message.answer("✅ **[ADMIN]** Giveaway time has passed – giveaway has been immediately finished and winners drawn!", parse_mode="Markdown")
-    else:
-        new_ends_at_str = new_ends_at.isoformat()
-        conn = sqlite3.connect("bot_database.db", timeout=30.0)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE active_giveaways SET ends_at = ? WHERE message_id = ?", (new_ends_at_str, msg_id))
-        conn.commit()
-        conn.close()
-
-        await update_all_active_giveaways(bot)
-        action_word = "extended" if hours_change > 0 else "shortened"
-        await message.answer(
-            f"✅ **[ADMIN]** Active giveaway has been successfully {action_word} by `{abs(hours_change)}h`!\n"
-            f"⏳ New end time: `{new_ends_at.strftime('%Y-%m-%d %H:%M:%S')}`",
-            parse_mode="Markdown"
-        )
-
-async def process_simulation(message: types.Message, tier_key: str):
-    user_id = message.from_user.id
-    if user_id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    get_or_create_user(user_id)
-    
-    if tier_key not in TIERS:
-        await message.answer("⚠️ Invalid tier!", parse_mode="Markdown")
-        return
-        
-    tier_data = TIERS[tier_key]
-    
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (tier_data["tickets"], user_id))
-    cursor.execute("INSERT INTO user_ebooks (user_id, ebook_name) VALUES (?, ?)", (user_id, tier_data["name"]))
-    conn.commit()
-    conn.close()
-    
-    add_to_giveaway_pool_raw(tier_data["price"] * 0.8)
-    await update_all_active_giveaways(bot)
-    
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
-    total_tickets = cursor.fetchone()[0]
-    conn.close()
-    
-    await message.answer(
-        f"🧪 **[PURCHASE SIMULATION]**\n\n"
-        f"✅ Successfully simulated payment for: **{tier_data['name']}**\n"
-        f"🎟 Boost tickets added: **+{tier_data['tickets']}**\n"
-        f"📊 Your total ticket balance: **{total_tickets}**",
-        parse_mode="Markdown"
-    )
-    
-    file_to_send = tier_data["file"]
-    if os.path.exists(file_to_send):
-        await message.answer_document(
-            document=FSInputFile(file_to_send),
-            caption=f"🎁 Here is your purchased file for {tier_data['name']}!"
-        )
-
-@dp.message(Command("sim_pay"))
-async def cmd_sim_pay(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    args = message.text.split()
-    tier_choice = args[1].lower().replace("buy_", "") if len(args) > 1 else "tier3"
-    await process_simulation(message, tier_choice)
-
-@dp.message(Command("tier1"))
-async def cmd_tier1(message: types.Message):
-    await process_simulation(message, "tier1")
-
-@dp.message(Command("tier2"))
-async def cmd_tier2(message: types.Message):
-    await process_simulation(message, "tier2")
-
-@dp.message(Command("tier3"))
-async def cmd_tier3(message: types.Message):
-    await process_simulation(message, "tier3")
-
-@dp.message(Command("sim_bots"))
-async def cmd_sim_bots(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-        
-    args = message.text.split()
-    if len(args) < 2 or not args[1].isdigit():
-        await message.answer("⚠️ Usage: `/sim_bots <number>` (e.g., `/sim_bots 4`)", parse_mode="Markdown")
-        return
-        
-    count = int(args[1])
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    
-    added = 0
-    for _ in range(count):
-        fake_bot_id = random.randint(900000000, 999999999)
-        cursor.execute("INSERT OR IGNORE INTO users (user_id, tickets) VALUES (?, 1)", (fake_bot_id,))
-        try:
-            cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (fake_bot_id,))
-            added += 1
-        except sqlite3.IntegrityError:
-            pass
-            
-    conn.commit()
-    conn.close()
-    
-    await update_all_active_giveaways(bot)
-    await message.answer(f"🤖 Successfully added {added} test bots to the active giveaway!")
-
-@dp.message(Command("startgiveaway"))
-async def cmd_start_giveaway(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    args = message.text.split()
-    if len(args) < 3 or not args[1].isdigit():
-        await message.answer("⚠️ Usage: `/startgiveaway <winners_count> <hours>`\nE.g.: `/startgiveaway 3 24`", parse_mode="Markdown")
-        return
-        
-    winners_count = int(args[1])
-    try:
-        duration_hours = float(args[2])
-    except ValueError:
-        await message.answer("⚠️ Provide a valid number of hours (e.g., `12` or `2.5`).", parse_mode="Markdown")
-        return
-
-    if not (1 <= winners_count <= 50):
-        await message.answer("⚠️ Winners count must be between 1 and 50.")
-        return
-
-    success = await trigger_start_giveaway_internal(winners_count, duration_hours)
-    if success:
-        await message.answer(f"✅ Giveaway successfully started for {duration_hours}h!")
-    else:
-        await message.answer("⚠️ Giveaway drawing or startup process is already in progress! Please wait.")
-
-@dp.message(Command("endgiveaway"))
-async def cmd_end_giveaway(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    conn = sqlite3.connect("bot_database.db", timeout=30.0)
-    cursor = conn.cursor()
-    cursor.execute("SELECT message_id, winners_count FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
-    active_gw = cursor.fetchone()
-    conn.close()
-
-    if not active_gw:
-        await message.answer("⚠️ No active giveaway to finish.")
-        return
-
-    msg_id, winners_count = active_gw
-    await finish_giveaway_automatically(bot, msg_id, winners_count)
-    await message.answer("✅ Giveaway prematurely ended and winners drawn!")
+    await route_user_response(message, f"👋 Welcome to Undrgroundzone!\nYour tickets: {tickets}")
 
 @dp.callback_query(lambda c: c.data == "join_giveaway")
 async def process_join_giveaway(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-    
     if not await check_membership(user_id, bot):
-        await bot.answer_callback_query(
-            callback_query.id, 
-            text="⚠️ You must be a member of the group to join the giveaway!", 
-            show_alert=True
-        )
+        await bot.answer_callback_query(callback_query.id, text="⚠️ You must be a group member!", show_alert=True)
         return
 
     get_or_create_user(user_id)
-    
     conn = sqlite3.connect("bot_database.db", timeout=30.0)
     cursor = conn.cursor()
-    
     cursor.execute("SELECT 1 FROM giveaway_participants WHERE user_id = ?", (user_id,))
-    already_joined = cursor.fetchone()
-    
-    if already_joined:
+    if cursor.fetchone():
         conn.close()
-        await bot.answer_callback_query(
-            callback_query.id, 
-            text="⚠️ You have already joined this giveaway!", 
-            show_alert=True
-        )
+        await bot.answer_callback_query(callback_query.id, text="⚠️ Already joined!", show_alert=True)
         return
 
-    try:
-        cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (user_id,))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        conn.close()
-        await bot.answer_callback_query(
-            callback_query.id, 
-            text="⚠️ You have already joined this giveaway!", 
-            show_alert=True
-        )
-        return
-
+    cursor.execute("INSERT INTO giveaway_participants (user_id) VALUES (?)", (user_id,))
+    conn.commit()
     conn.close()
-
-    await bot.answer_callback_query(callback_query.id, text="✅ Success! You joined the giveaway.", show_alert=False)
+    await bot.answer_callback_query(callback_query.id, text="✅ Joined giveaway successfully!", show_alert=False)
     await update_all_active_giveaways(bot)
-
-@dp.message(Command("post_ebooks"))
-async def cmd_post_ebooks(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Unauthorized.")
-        return
-
-    bot_username = (await bot.get_me()).username
-
-    for tier_key, data in TIERS.items():
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🛒 BUY {data['name'].upper()} (${data['price']})", url=f"https://t.me/{bot_username}?start={data['payload']}")]
-        ])
-        
-        caption_text = (
-            f"📚 **{data['name']}**\n\n"
-            f"💰 Price: **${data['price']} USD**\n"
-            f"🎟 Tickets included: **{data['tickets']}**\n\n"
-            "Click the button below to purchase:"
-        )
-
-        try:
-            if os.path.exists(data["photo"]):
-                await bot.send_photo(
-                    chat_id=CHAT_ID,
-                    message_thread_id=STORE_TOPIC_ID,
-                    photo=FSInputFile(data["photo"]),
-                    caption=caption_text,
-                    reply_markup=keyboard,
-                    parse_mode="Markdown"
-                )
-            else:
-                await bot.send_message(
-                    chat_id=CHAT_ID,
-                    message_thread_id=STORE_TOPIC_ID,
-                    text=f"⚠️ [Image `{data['photo']}` missing]\n\n" + caption_text,
-                    reply_markup=keyboard,
-                    parse_mode="Markdown"
-                )
-        except Exception as e:
-            await message.answer(f"⚠️ Error posting {data['name']}: {e}")
-            return
-
-    await message.answer("✅ Store successfully posted to the e-books topic (3) with individual images!")
 
 @dp.chat_member()
 async def member_join(event: ChatMemberUpdated):
     if event.chat.username and f"@{event.chat.username.lower()}" == CHAT_ID.lower():
         if event.new_chat_member.status == "member" and event.old_chat_member.status in ["left", "kicked"]:
-            new_user_id = event.new_chat_member.user.id
-            invite_link_obj = event.invite_link
-            
-            if invite_link_obj and invite_link_obj.invite_link:
-                link_url = invite_link_obj.invite_link
-                
-                conn = sqlite3.connect("bot_database.db", timeout=30.0)
-                cursor = conn.cursor()
-                cursor.execute("SELECT user_id FROM invite_links WHERE invite_link = ?", (link_url,))
-                row = cursor.fetchone()
-                
-                if row:
-                    inviter_id = row[0]
-                    if inviter_id != new_user_id:
-                        conn_db = sqlite3.connect("bot_database.db", timeout=30.0)
-                        cursor_db = conn_db.cursor()
-                        cursor_db.execute("SELECT 1 FROM referral_history WHERE inviter_id = ? AND invited_id = ?", (inviter_id, new_user_id))
-                        already_referred = cursor_db.fetchone()
-                        
-                        if not already_referred:
-                            cursor_db.execute("INSERT INTO referral_history (inviter_id, invited_id) VALUES (?, ?)", (inviter_id, new_user_id))
-                            cursor_db.execute("UPDATE users SET tickets = tickets + 1 WHERE user_id = ?", (inviter_id,))
-                            conn_db.commit()
-                            
-                            cursor_db.execute("SELECT tickets FROM users WHERE user_id = ?", (inviter_id,))
-                            inviter_tickets = cursor_db.fetchone()[0]
-                            conn_db.close()
-                            
-                            try:
-                                await bot.send_message(
-                                    inviter_id,
-                                    f"🎉 Someone joined the group using your invite link!\n"
-                                    f"You received +1 ticket boost for the giveaway.\n"
-                                    f"Your total ticket balance: {inviter_tickets}"
-                                )
-                            except Exception:
-                                pass
-                conn.close()
-
-            get_or_create_user(new_user_id)
-            try:
-                await bot.send_message(
-                    new_user_id,
-                    "👋 Welcome to the group! You have received your base 1 ticket."
-                )
-            except Exception:
-                pass
+            get_or_create_user(event.new_chat_member.user.id)
 
 async def main():
     print("STARTING BOT...")
     logging.basicConfig(level=logging.INFO)
-    
     await start_web_server()
-    
     await set_bot_commands(bot)
     asyncio.create_task(background_ticker(bot))
     await bot.delete_webhook(drop_pending_updates=True)
