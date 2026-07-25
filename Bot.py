@@ -182,6 +182,7 @@ async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle)
     app.router.add_get("/webapp", handle_mini_app)
+    app.router.add_static("/", path=str(pathlib.Path(__file__).parent / "templates"), name="static")
     app.router.add_get("/api/user/{user_id}", api_get_user)
     app.router.add_get("/api/leaderboard", api_get_leaderboard)
     app.router.add_post("/api/admin/{action}", api_admin_action)
@@ -432,7 +433,6 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
 
     winners_mentions_public = []
     winners_db_records = []
-    admin_private_lines = [f"🏆 **Giveaway Ended - Winners Summary:**\n"]
 
     for w_id in winners:
         try:
@@ -440,11 +440,9 @@ async def finish_giveaway_automatically(bot: Bot, msg_id: int, winners_count: in
             name = member.user.full_name
             winners_mentions_public.append(f"• {name}")
             winners_db_records.append(f"• {name}")
-            admin_private_lines.append(f"• {name} (ID: {w_id})")
         except Exception:
             winners_mentions_public.append(f"• User ID: {w_id}")
             winners_db_records.append(f"• User ID: {w_id}")
-            admin_private_lines.append(f"• User ID: {w_id}")
 
     winners_public_text = "\n".join(winners_mentions_public) if winners_mentions_public else "No winners"
     winners_stored_text = "\n".join(winners_db_records) if winners_db_records else "No winners"
