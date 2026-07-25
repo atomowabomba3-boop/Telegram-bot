@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Panel & Store</title>
-    <!-- Official Telegram Web App script -->
+    <title>Giveaway App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: var(--tg-theme-bg-color, #ffffff);
-            --text-color: var(--tg-theme-text-color, #000000);
-            --hint-color: var(--tg-theme-hint-color, #999999);
-            --card-bg: var(--tg-theme-secondary-bg-color, #f1f1f1);
-            --button-color: var(--tg-theme-button-color, #2481cc);
-            --button-text: var(--tg-theme-button-text-color, #ffffff);
+            --bg-color: var(--tg-theme-bg-color, #0f172a);
+            --card-bg: var(--tg-theme-secondary-bg-color, #1e293b);
+            --text-color: var(--tg-theme-text-color, #f8fafc);
+            --hint-color: var(--tg-theme-hint-color, #94a3b8);
+            --primary-color: var(--tg-theme-button-color, #6366f1);
+            --primary-text: var(--tg-theme-button-text-color, #ffffff);
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --danger-color: #ef4444;
+            --success-color: #22c55e;
         }
 
         body {
@@ -22,111 +24,350 @@
             color: var(--text-color);
             margin: 0;
             padding: 16px;
-            box-sizing: border-box;
+            padding-bottom: 40px;
         }
 
-        h1, h2 {
-            font-size: 18px;
-            margin-bottom: 8px;
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin: 0 0 4px 0;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--hint-color);
+            font-size: 14px;
+            margin: 0;
         }
 
         .card {
-            background: var(--card-bg);
-            padding: 14px;
-            border-radius: 12px;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 18px;
             margin-bottom: 16px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .info-row {
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-box .value {
+            font-size: 20px;
+            font-weight: 700;
+            margin-top: 4px;
+            color: var(--text-color);
+        }
+
+        .stat-box .label {
+            font-size: 12px;
+            color: var(--hint-color);
+        }
+
+        h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: var(--primary-text);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 15px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-sizing: border-box;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 0, 0, 0.2);
+            color: var(--text-color);
+            margin-bottom: 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .ref-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            word-break: break-all;
+            color: var(--hint-color);
+            margin-bottom: 10px;
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .leaderboard-item {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 15px;
-        }
-
-        .info-row:last-child {
-            margin-bottom: 0;
-        }
-
-        ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-
-        li {
-            margin-bottom: 6px;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
             font-size: 14px;
         }
 
-        .loading {
-            color: var(--hint-color);
-            font-style: italic;
+        .leaderboard-item:nth-child(1) { border-left: 4px solid #eab308; }
+        .leaderboard-item:nth-child(2) { border-left: 4px solid #94a3b8; }
+        .leaderboard-item:nth-child(3) { border-left: 4px solid #b45309; }
+
+        .admin-badge {
+            background: var(--danger-color);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
         }
+
+        /* Toast notifications */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 12px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-size: 14px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.3s, fadeout 0.3s 2.5s;
+        }
+
+        @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        @keyframes fadeout { from { bottom: 30px; opacity: 1; } to { bottom: 0; opacity: 0; } }
     </style>
 </head>
 <body>
 
-    <h1>User Profile</h1>
-    <div class="card" id="user-info">
-        <p class="loading">Loading user data...</p>
+    <div class="header">
+        <h1>🎉 Giveaway App</h1>
+        <p>Zbieraj punkty, zapraszaj znajomych i wygrywaj nagrody!</p>
     </div>
 
-    <h2>Referral Leaderboard</h2>
-    <div class="card" id="leaderboard">
-        <p class="loading">Loading leaderboard...</p>
+    <!-- Statystyki użytkownika -->
+    <div class="card">
+        <h3>👤 Twój Profil</h3>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="label">Twoje Punkty</div>
+                <div class="value" id="user-points">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="label">Poleconych</div>
+                <div class="value" id="user-refs">0</div>
+            </div>
+        </div>
     </div>
+
+    <!-- Sekcja zaproszeń -->
+    <div class="card">
+        <h3>🔗 Program Poleceń</h3>
+        <p style="font-size: 13px; color: var(--hint-color); margin-top: 0; margin-bottom: 10px;">
+            Podziel się swoim linkiem ze znajomymi, aby zdobyć dodatkowe szanse w konkursie:
+        </p>
+        <div class="ref-box" id="ref-link">Ładowanie linku...</div>
+        <button class="btn" onclick="copyRefLink()">📋 Skopiuj Link</button>
+    </div>
+
+    <!-- Ranking -->
+    <div class="card">
+        <h3>🏆 Globalny Ranking</h3>
+        <div class="leaderboard-list" id="leaderboard">
+            <div style="text-align: center; color: var(--hint-color); padding: 10px;">Ładowanie rankingu...</div>
+        </div>
+    </div>
+
+    <!-- Panel Administratora (Widoczny wyłącznie dla admina ID: 8998575936) -->
+    <div id="admin-panel" class="card" style="display: none; border: 1px solid var(--primary-color);">
+        <h3>🛠 Panel Administratora <span class="admin-badge">Admin</span></h3>
+        
+        <button class="btn btn-success" style="margin-bottom: 12px;" onclick="adminAction('start')">🚀 Uruchom Nowy Giveaway</button>
+        
+        <div style="margin-bottom: 12px;">
+            <label style="font-size: 12px; color: var(--hint-color);">Dodaj pulę nagród:</label>
+            <input type="text" id="pool-input" placeholder="np. 3x Klucz Steam / 100 PLN">
+            <button class="btn" onclick="adminAction('add_pool')">➕ Dodaj Pulę Nagród</button>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+            <label style="font-size: 12px; color: var(--hint-color);">Zarządzaj biletami użytkownika:</label>
+            <input type="text" id="target-id" placeholder="Telegram User ID">
+            <input type="number" id="tickets-count" placeholder="Liczba biletów (np. 5 lub -2)">
+            <button class="btn" onclick="adminAction('add_tickets')">🎟 Przyznaj / Odejmij Bilety</button>
+        </div>
+
+        <button class="btn btn-danger" onclick="adminAction('winners')">🎲 Wylosuj Zwycięzców Teraz</button>
+    </div>
+
+    <!-- Toast komunikatów -->
+    <div id="toast">Powiadomienie</div>
 
     <script>
-        // Telegram Web App initialization
         const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand(); // Expand Mini App to full screen
+        tg.expand();
 
-        // Get user ID from Telegram (or fallback for browser testing)
-        const userId = tg.initDataUnsafe?.user?.id || 123456;
+        // Pobieranie ID użytkownika (z Telegrama lub awaryjnie Admin ID do testów w przeglądarce)
+        let userId = 8998575936; 
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+            userId = tg.initDataUnsafe.user.id;
+        }
 
-        // Fetch specific user data from Python backend
-        fetch(`/api/user/${userId}`)
-            .then(res => res.json())
-            .then(data => {
-                const userInfoDiv = document.getElementById('user-info');
-                if (data.error) {
-                    userInfoDiv.innerHTML = `<p>Error: User not found.</p>`;
-                    return;
+        // Pokazanie panelu admina jeśli to Ty
+        if (userId === 8998575936) {
+            document.getElementById('admin-panel').style.display = 'block';
+        }
+
+        function showToast(text) {
+            let toast = document.getElementById("toast");
+            toast.innerText = text;
+            toast.className = "show";
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        async function loadData() {
+            try {
+                // Pobieranie profilu użytkownika
+                let res = await fetch(`/api/user/${userId}`);
+                if (res.ok) {
+                    let data = await res.json();
+                    document.getElementById('user-points').innerText = data.points || 0;
+                    document.getElementById('user-refs').innerText = data.referrals_count || 0;
+                    
+                    let botUsername = "Giveaway63bot"; // Twoja nazwa bota
+                    let refUrl = `https://t.me/${botUsername}?start=ref_${userId}`;
+                    document.getElementById('ref-link').innerText = refUrl;
                 }
-                userInfoDiv.innerHTML = `
-                    <div class="info-row"><span>User ID:</span> <b>${data.user_id}</b></div>
-                    <div class="info-row"><span>Your Points:</span> <b>${data.points}</b></div>
-                    <div class="info-row"><span>VIP Status:</span> <b>${data.is_vip ? 'Active ⭐' : 'None'}</b></div>
-                `;
-            })
-            .catch(err => {
-                console.error(err);
-                document.getElementById('user-info').innerHTML = `<p>Failed to connect to the server.</p>`;
-            });
 
-        // Fetch leaderboard from backend
-        fetch('/api/leaderboard')
-            .then(res => res.json())
-            .then(data => {
-                const leaderboardDiv = document.getElementById('leaderboard');
-                if (!data || data.length === 0) {
-                    leaderboardDiv.innerHTML = `<p>No data in leaderboard.</p>`;
-                    return;
+                // Pobieranie rankingu
+                let lbRes = await fetch('/api/leaderboard');
+                if (lbRes.ok) {
+                    let lbData = await lbRes.json();
+                    let html = '';
+                    if (lbData.length === 0) {
+                        html = '<div style="text-align: center; color: var(--hint-color); padding: 10px;">Brak uczestników w rankingu.</div>';
+                    } else {
+                        lbData.forEach((row, index) => {
+                            let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+                            html += `
+                                <div class="leaderboard-item">
+                                    <span><b>${medal}</b> ID: ${row.user_id}</span>
+                                    <span style="color: var(--primary-color); font-weight: 700;">${row.points} pkt</span>
+                                </div>
+                            `;
+                        });
+                    }
+                    document.getElementById('leaderboard').innerHTML = html;
                 }
-                let html = '<ul>';
-                data.forEach((user, index) => {
-                    html += `<li><b>#${index + 1}</b> — ID: ${user.user_id} (${user.points} pts)</li>`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function copyRefLink() {
+            let text = document.getElementById('ref-link').innerText;
+            navigator.clipboard.writeText(text);
+            showToast('Skopiowano link polecający!');
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
+        async function adminAction(action) {
+            let body = { user_id: userId };
+            if (action === 'add_pool') {
+                body.text = document.getElementById('pool-input').value;
+            } else if (action === 'add_tickets') {
+                body.target_id = document.getElementById('target-id').value;
+                body.count = document.getElementById('tickets-count').value;
+            }
+
+            try {
+                let res = await fetch(`/api/admin/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
                 });
-                html += '</ul>';
-                leaderboardDiv.innerHTML = html;
-            })
-            .catch(err => {
-                console.error(err);
-                document.getElementById('leaderboard').innerHTML = `<p>Failed to load leaderboard.</p>`;
-            });
+                let result = await res.json();
+                showToast(result.message || 'Wykonano pomyślnie!');
+                if (tg.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+                loadData();
+            } catch (err) {
+                showToast('Wystąpił błąd podczas wykonywania akcji.');
+            }
+        }
+
+        loadData();
     </script>
 </body>
 </html>
-
