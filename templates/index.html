@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giveaway App</title>
+    <title>Undrgroundzone - Giveaway & Store</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: var(--tg-theme-bg-color, #0f172a);
-            --card-bg: var(--tg-theme-secondary-bg-color, #1e293b);
+            --bg-color: var(--tg-theme-bg-color, #090d16);
+            --card-bg: var(--tg-theme-secondary-bg-color, #131b2e);
             --text-color: var(--tg-theme-text-color, #f8fafc);
             --hint-color: var(--tg-theme-hint-color, #94a3b8);
             --primary-color: var(--tg-theme-button-color, #6366f1);
@@ -16,6 +16,7 @@
             --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
             --danger-color: #ef4444;
             --success-color: #22c55e;
+            --border-color: rgba(255, 255, 255, 0.07);
         }
 
         body {
@@ -24,17 +25,17 @@
             color: var(--text-color);
             margin: 0;
             padding: 16px;
-            padding-bottom: 40px;
+            padding-bottom: 50px;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         .header h1 {
-            font-size: 24px;
-            margin: 0 0 4px 0;
+            font-size: 26px;
+            margin: 0 0 6px 0;
             background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -42,42 +43,44 @@
 
         .header p {
             color: var(--hint-color);
-            font-size: 14px;
+            font-size: 13px;
             margin: 0;
         }
 
         .card {
             background-color: var(--card-bg);
-            border-radius: 16px;
+            border-radius: 18px;
             padding: 18px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
         }
 
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
-            margin-bottom: 16px;
         }
 
         .stat-box {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            padding: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 14px;
+            padding: 14px;
             text-align: center;
+            border: 1px solid var(--border-color);
         }
 
         .stat-box .value {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
             margin-top: 4px;
             color: var(--text-color);
         }
 
         .stat-box .label {
-            font-size: 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             color: var(--hint-color);
         }
 
@@ -96,16 +99,17 @@
             border: none;
             border-radius: 12px;
             padding: 12px 16px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             width: 100%;
             cursor: pointer;
-            transition: opacity 0.2s, transform 0.1s;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             box-sizing: border-box;
+            text-decoration: none;
         }
 
         .btn:active {
@@ -113,19 +117,41 @@
             opacity: 0.9;
         }
 
-        .btn-danger {
-            background: var(--danger-color);
+        .btn-success { background: var(--success-color); }
+        .btn-danger { background: var(--danger-color); }
+
+        .store-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .btn-success {
-            background: var(--success-color);
+        .store-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        input, textarea {
+        .store-info h4 {
+            margin: 0 0 4px 0;
+            font-size: 15px;
+        }
+
+        .store-info p {
+            margin: 0;
+            font-size: 12px;
+            color: var(--hint-color);
+        }
+
+        input {
             width: 100%;
             padding: 12px;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
             background-color: rgba(0, 0, 0, 0.2);
             color: var(--text-color);
             margin-bottom: 10px;
@@ -139,20 +165,15 @@
         }
 
         .ref-box {
-            background: rgba(0, 0, 0, 0.2);
-            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 12px;
             border-radius: 10px;
-            font-size: 13px;
+            font-size: 12px;
             word-break: break-all;
             color: var(--hint-color);
             margin-bottom: 10px;
-            border: 1px dashed rgba(255, 255, 255, 0.1);
-        }
-
-        .leaderboard-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            border: 1px dashed var(--border-color);
+            font-family: monospace;
         }
 
         .leaderboard-item {
@@ -163,38 +184,25 @@
             background: rgba(255, 255, 255, 0.02);
             border-radius: 10px;
             font-size: 14px;
+            margin-bottom: 6px;
         }
 
-        .leaderboard-item:nth-child(1) { border-left: 4px solid #eab308; }
-        .leaderboard-item:nth-child(2) { border-left: 4px solid #94a3b8; }
-        .leaderboard-item:nth-child(3) { border-left: 4px solid #b45309; }
-
-        .admin-badge {
-            background: var(--danger-color);
-            color: white;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        /* Toast notifications */
         #toast {
             visibility: hidden;
             min-width: 250px;
-            background-color: #333;
+            background-color: #1e293b;
             color: #fff;
             text-align: center;
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 10px;
+            padding: 14px;
             position: fixed;
             z-index: 1000;
             left: 50%;
             bottom: 30px;
             transform: translateX(-50%);
             font-size: 14px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid var(--border-color);
         }
 
         #toast.show {
@@ -209,82 +217,118 @@
 <body>
 
     <div class="header">
-        <h1>🎉 Giveaway App</h1>
-        <p>Zbieraj punkty, zapraszaj znajomych i wygrywaj nagrody!</p>
+        <h1>⚡ Undrgroundzone</h1>
+        <p>Giveaway Dashboard & E-Book Store</p>
     </div>
 
-    <!-- Statystyki użytkownika -->
+    <!-- User Profile Card -->
     <div class="card">
-        <h3>👤 Twój Profil</h3>
+        <h3>👤 Your Profile</h3>
         <div class="stats-grid">
             <div class="stat-box">
-                <div class="label">Twoje Punkty</div>
+                <div class="label">Your Tickets</div>
                 <div class="value" id="user-points">0</div>
             </div>
             <div class="stat-box">
-                <div class="label">Poleconych</div>
+                <div class="label">Referrals</div>
                 <div class="value" id="user-refs">0</div>
             </div>
         </div>
     </div>
 
-    <!-- Sekcja zaproszeń -->
+    <!-- E-book Store Card -->
     <div class="card">
-        <h3>🔗 Program Poleceń</h3>
-        <p style="font-size: 13px; color: var(--hint-color); margin-top: 0; margin-bottom: 10px;">
-            Podziel się swoim linkiem ze znajomymi, aby zdobyć dodatkowe szanse w konkursie:
+        <h3>📚 E-Book Store</h3>
+        <p style="font-size: 12px; color: var(--hint-color); margin-top: 0; margin-bottom: 12px;">
+            Purchase e-books to instantly boost your giveaway tickets!
         </p>
-        <div class="ref-box" id="ref-link">Ładowanie linku...</div>
-        <button class="btn" onclick="copyRefLink()">📋 Skopiuj Link</button>
+        <div class="store-grid">
+            <div class="store-item">
+                <div class="store-info">
+                    <h4>Ebook Tier 1</h4>
+                    <p>+50 Tickets • $2.00</p>
+                </div>
+                <a href="#" id="buy-tier1" class="btn" style="width: auto; padding: 8px 14px; font-size: 13px;">Buy</a>
+            </div>
+            <div class="store-item">
+                <div class="store-info">
+                    <h4>Ebook Tier 2</h4>
+                    <p>+200 Tickets • $5.00</p>
+                </div>
+                <a href="#" id="buy-tier2" class="btn" style="width: auto; padding: 8px 14px; font-size: 13px;">Buy</a>
+            </div>
+            <div class="store-item">
+                <div class="store-info">
+                    <h4>Ebook Tier 3</h4>
+                    <p>+500 Tickets • $10.00</p>
+                </div>
+                <a href="#" id="buy-tier3" class="btn" style="width: auto; padding: 8px 14px; font-size: 13px;">Buy</a>
+            </div>
+        </div>
     </div>
 
-    <!-- Ranking -->
+    <!-- Referral Program Card -->
     <div class="card">
-        <h3>🏆 Globalny Ranking</h3>
-        <div class="leaderboard-list" id="leaderboard">
-            <div style="text-align: center; color: var(--hint-color); padding: 10px;">Ładowanie rankingu...</div>
+        <h3>🔗 Referral Program</h3>
+        <p style="font-size: 12px; color: var(--hint-color); margin-top: 0; margin-bottom: 10px;">
+            Share your unique link with friends to earn +1 ticket boost per referral:
+        </p>
+        <div class="ref-box" id="ref-link">Generating link...</div>
+        <button class="btn" onclick="copyRefLink()">📋 Copy Invite Link</button>
+    </div>
+
+    <!-- Leaderboard Card -->
+    <div class="card">
+        <h3>🏆 Leaderboard</h3>
+        <div id="leaderboard">
+            <div style="text-align: center; color: var(--hint-color); padding: 10px;">Loading leaderboard...</div>
         </div>
     </div>
 
-    <!-- Panel Administratora (Widoczny wyłącznie dla admina ID: 8998575936) -->
-    <div id="admin-panel" class="card" style="display: none; border: 1px solid var(--primary-color);">
-        <h3>🛠 Panel Administratora <span class="admin-badge">Admin</span></h3>
+    <!-- Admin Panel (Visible only for admin ID: 8998575936) -->
+    <div id="admin-panel" class="card" style="display: none; border-color: var(--primary-color);">
+        <h3>🛠 Admin Control Panel</h3>
         
-        <button class="btn btn-success" style="margin-bottom: 12px;" onclick="adminAction('start')">🚀 Uruchom Nowy Giveaway</button>
+        <button class="btn btn-success" style="margin-bottom: 12px;" onclick="adminAction('start')">🚀 Start New Giveaway</button>
         
         <div style="margin-bottom: 12px;">
-            <label style="font-size: 12px; color: var(--hint-color);">Dodaj pulę nagród:</label>
-            <input type="text" id="pool-input" placeholder="np. 3x Klucz Steam / 100 PLN">
-            <button class="btn" onclick="adminAction('add_pool')">➕ Dodaj Pulę Nagród</button>
+            <label style="font-size: 11px; color: var(--hint-color); text-transform: uppercase;">Add Prize Pool:</label>
+            <input type="text" id="pool-input" placeholder="e.g. $15.00 or Custom Reward">
+            <button class="btn" onclick="adminAction('add_pool')">➕ Add to Pool</button>
         </div>
 
         <div style="margin-bottom: 12px;">
-            <label style="font-size: 12px; color: var(--hint-color);">Zarządzaj biletami użytkownika:</label>
+            <label style="font-size: 11px; color: var(--hint-color); text-transform: uppercase;">Manage User Tickets:</label>
             <input type="text" id="target-id" placeholder="Telegram User ID">
-            <input type="number" id="tickets-count" placeholder="Liczba biletów (np. 5 lub -2)">
-            <button class="btn" onclick="adminAction('add_tickets')">🎟 Przyznaj / Odejmij Bilety</button>
+            <input type="number" id="tickets-count" placeholder="Tickets count (e.g. 10 or -5)">
+            <button class="btn" onclick="adminAction('add_tickets')">🎟 Modify Tickets</button>
         </div>
 
-        <button class="btn btn-danger" onclick="adminAction('winners')">🎲 Wylosuj Zwycięzców Teraz</button>
+        <button class="btn btn-danger" onclick="adminAction('winners')">🎲 Draw Winners Now</button>
     </div>
 
-    <!-- Toast komunikatów -->
-    <div id="toast">Powiadomienie</div>
+    <!-- Toast Notification -->
+    <div id="toast">Notification</div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Pobieranie ID użytkownika (z Telegrama lub awaryjnie Admin ID do testów w przeglądarce)
         let userId = 8998575936; 
         if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
             userId = tg.initDataUnsafe.user.id;
         }
 
-        // Pokazanie panelu admina jeśli to Ty
         if (userId === 8998575936) {
             document.getElementById('admin-panel').style.display = 'block';
         }
+
+        // Fix bot username lookup for referral & store links
+        const botUsername = "Giveaway63bot"; 
+        document.getElementById('ref-link').innerText = `https://t.me/${botUsername}?start=ref_${userId}`;
+        document.getElementById('buy-tier1').href = `https://t.me/${botUsername}?start=buy_tier1`;
+        document.getElementById('buy-tier2').href = `https://t.me/${botUsername}?start=buy_tier2`;
+        document.getElementById('buy-tier3').href = `https://t.me/${botUsername}?start=buy_tier3`;
 
         function showToast(text) {
             let toast = document.getElementById("toast");
@@ -295,32 +339,26 @@
 
         async function loadData() {
             try {
-                // Pobieranie profilu użytkownika
                 let res = await fetch(`/api/user/${userId}`);
                 if (res.ok) {
                     let data = await res.json();
                     document.getElementById('user-points').innerText = data.points || 0;
                     document.getElementById('user-refs').innerText = data.referrals_count || 0;
-                    
-                    let botUsername = "Giveaway63bot"; // Twoja nazwa bota
-                    let refUrl = `https://t.me/${botUsername}?start=ref_${userId}`;
-                    document.getElementById('ref-link').innerText = refUrl;
                 }
 
-                // Pobieranie rankingu
                 let lbRes = await fetch('/api/leaderboard');
                 if (lbRes.ok) {
                     let lbData = await lbRes.json();
                     let html = '';
                     if (lbData.length === 0) {
-                        html = '<div style="text-align: center; color: var(--hint-color); padding: 10px;">Brak uczestników w rankingu.</div>';
+                        html = '<div style="text-align: center; color: var(--hint-color); padding: 10px;">No entries on leaderboard yet.</div>';
                     } else {
                         lbData.forEach((row, index) => {
                             let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
                             html += `
                                 <div class="leaderboard-item">
                                     <span><b>${medal}</b> ID: ${row.user_id}</span>
-                                    <span style="color: var(--primary-color); font-weight: 700;">${row.points} pkt</span>
+                                    <span style="color: var(--primary-color); font-weight: 700;">${row.points} pts</span>
                                 </div>
                             `;
                         });
@@ -335,7 +373,7 @@
         function copyRefLink() {
             let text = document.getElementById('ref-link').innerText;
             navigator.clipboard.writeText(text);
-            showToast('Skopiowano link polecający!');
+            showToast('Referral link copied to clipboard!');
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.notificationOccurred('success');
             }
@@ -357,13 +395,13 @@
                     body: JSON.stringify(body)
                 });
                 let result = await res.json();
-                showToast(result.message || 'Wykonano pomyślnie!');
+                showToast(result.message || 'Action executed successfully!');
                 if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
                 loadData();
             } catch (err) {
-                showToast('Wystąpił błąd podczas wykonywania akcji.');
+                showToast('An error occurred while executing the action.');
             }
         }
 
