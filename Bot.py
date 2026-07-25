@@ -68,14 +68,18 @@ async def api_get_user(request):
     cursor = conn.cursor()
     cursor.execute("SELECT tickets FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
+    
+    cursor.execute("SELECT COUNT(*) FROM referral_history WHERE inviter_id = ?", (user_id,))
+    ref_count = cursor.fetchone()[0]
     conn.close()
     
     if not row:
-        return web.json_response({"error": "User not found"}, status=404)
+        return web.json_response({"points": 1, "referrals_count": ref_count})
         
     return web.json_response({
         "user_id": user_id,
         "points": row[0],
+        "referrals_count": ref_count,
         "is_vip": False
     })
 
@@ -89,12 +93,78 @@ async def api_get_leaderboard(request):
     leaderboard_data = [{"user_id": r[0], "points": r[1]} for r in rows]
     return web.json_response(leaderboard_data)
 
+async def api_admin_action(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"message": "Invalid JSON"}, status=400)
+
+    user_id = int(data.get("user_id", 0))
+    if user_id not in ADMIN_IDS:
+        return web.json_response({"message": "Unauthorized"}, status=403)
+
+    action = request.match_info.get("action", "")
+
+    if action == "start":
+        # Automatyczne uruchomienie givawayu domyślnie na 3 zwycięzców i 24 godziny
+        success = await trigger_start_giveaway_internal(3, 24.0)
+        if success:
+            return web.json_response({"message": "Giveaway successfully started!"})
+        else:
+            return web.json_response({"message": "Giveaway already in progress or error!"}, status=400)
+
+    elif action == "add_pool":
+        text_val = data.get("text", "")
+        # Próba wyciągnięcia liczby z tekstu lub sparsowania bezpośrednio
+        try:
+            # Usuwamy np. "$", napisy itp., zostawiając cyfry i kropkę
+            cleaned = "".join([c for c in text_val if c.isdigit() or c == "."])
+            amount = float(cleaned) if cleaned else 15.0
+        except ValueError:
+            amount = 15.0
+
+        add_to_giveaway_pool_raw(amount)
+        await update_all_active_giveaways(bot)
+        return web.json_response({"message": f"Successfully added {amount} to pool!"})
+
+    elif action == "add_tickets":
+        try:
+            target_id = int(data.get("target_id", 0))
+            count = int(data.get("count", 0))
+        except (ValueError, TypeError):
+            return web.json_response({"message": "Invalid target ID or ticket count"}, status=400)
+
+        get_or_create_user(target_id)
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET tickets = tickets + ? WHERE user_id = ?", (count, target_id))
+        conn.commit()
+        conn.close()
+        return web.json_response({"message": f"Successfully added {count} tickets to {target_id}!"})
+
+    elif action == "winners":
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("SELECT message_id, winners_count FROM active_giveaways WHERE status = 'active' ORDER BY message_id DESC LIMIT 1")
+        active_gw = cursor.fetchone()
+        conn.close()
+
+        if not active_gw:
+            return web.json_response({"message": "No active giveaway to draw!"}, status=400)
+
+        msg_id, winners_count = active_gw
+        await finish_giveaway_automatically(bot, msg_id, winners_count)
+        return web.json_response({"message": "Giveaway drawn successfully!"})
+
+    return web.json_response({"message": "Unknown action"}, status=404)
+
 async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle)
     app.router.add_get("/webapp", handle_mini_app)
     app.router.add_get("/api/user/{user_id}", api_get_user)
     app.router.add_get("/api/leaderboard", api_get_leaderboard)
+    app.router.add_post("/api/admin/{action}", api_admin_action)
     
     runner = web.AppRunner(app)
     await runner.setup()
@@ -414,6 +484,65 @@ async def set_bot_commands(bot: Bot):
         BotCommand(command="help", description="Show help"),
     ]
     await bot.set_my_commands(commands)
+
+async def trigger_start_giveaway_internal(winners_count: int, duration_hours: float) -> bool:
+    global is_drawing_in_progress
+    if is_drawing_in_progress:
+        return False
+
+    is_drawing_in_progress = True
+    try:
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
+        raw_pool_amount = cursor.fetchone()[0]
+        pool_amount = get_display_pool(raw_pool_amount)
+        
+        cursor.execute("DELETE FROM giveaway_participants")
+        conn.commit()
+        conn.close()
+
+        ends_at = datetime.now() + timedelta(hours=duration_hours)
+        ends_at_str = ends_at.isoformat()
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎉 JOIN GIVEAWAY", callback_data="join_giveaway")]
+        ])
+        
+        hours, remainder = divmod(int(duration_hours * 3600), 3600)
+        minutes = remainder // 60
+        time_str = f"{hours}h {minutes}m"
+
+        text = (
+            "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
+            f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
+            f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
+            f"👥 **Participants:** `0` people\n"
+            f"⏳ **Ends in:** `{time_str}`\n\n"
+            "💡 *Tip: Inviting friends via referrals and buying e-books increases your chances by boosting your tickets!*\n\n"
+            "Click the button below to participate!"
+        )
+
+        sent_msg = await bot.send_message(
+            chat_id=CHAT_ID,
+            message_thread_id=TOPIC_ID,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
+
+        conn = sqlite3.connect("bot_database.db", timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO active_giveaways (message_id, winners_count, ends_at, status) VALUES (?, ?, ?, 'active')", (sent_msg.message_id, winners_count, ends_at_str))
+        conn.commit()
+        conn.close()
+
+        asyncio.create_task(giveaway_timer_task(bot, sent_msg.message_id, duration_hours, winners_count))
+        return True
+    except Exception as e:
+        is_drawing_in_progress = False
+        logging.error(f"Error starting giveaway: {e}")
+        return False
 
 @dp.message(Command("winners"))
 async def cmd_winners(message: types.Message):
@@ -850,14 +979,8 @@ async def cmd_sim_bots(message: types.Message):
 
 @dp.message(Command("startgiveaway"))
 async def cmd_start_giveaway(message: types.Message):
-    global is_drawing_in_progress
-
     if message.from_user.id not in ADMIN_IDS:
         await message.answer("⚠️ Unauthorized.")
-        return
-        
-    if is_drawing_in_progress:
-        await message.answer("⚠️ Giveaway drawing or startup process is already in progress! Please wait until the current one finishes.")
         return
 
     args = message.text.split()
@@ -876,59 +999,11 @@ async def cmd_start_giveaway(message: types.Message):
         await message.answer("⚠️ Winners count must be between 1 and 50.")
         return
 
-    is_drawing_in_progress = True
-    try:
-        conn = sqlite3.connect("bot_database.db", timeout=30.0)
-        cursor = conn.cursor()
-        cursor.execute("SELECT amount FROM giveaway_pool WHERE id = 1")
-        raw_pool_amount = cursor.fetchone()[0]
-        pool_amount = get_display_pool(raw_pool_amount)
-        
-        cursor.execute("DELETE FROM giveaway_participants")
-        conn.commit()
-        conn.close()
-
-        ends_at = datetime.now() + timedelta(hours=duration_hours)
-        ends_at_str = ends_at.isoformat()
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎉 JOIN GIVEAWAY", callback_data="join_giveaway")]
-        ])
-        
-        hours, remainder = divmod(int(duration_hours * 3600), 3600)
-        minutes = remainder // 60
-        time_str = f"{hours}h {minutes}m"
-
-        text = (
-            "🎁 **UNDRGROUNDZONE MEGA GIVEAWAY** 🎁\n\n"
-            f"💰 **Current Prize Pool:** `${pool_amount:.2f} USD`\n"
-            f"🏆 **Winners Count:** `{winners_count}` (prize split equally)\n"
-            f"👥 **Participants:** `0` people\n"
-            f"⏳ **Ends in:** `{time_str}`\n\n"
-            "💡 *Tip: Inviting friends via referrals and buying e-books increases your chances by boosting your tickets!*\n\n"
-            "Click the button below to participate!"
-        )
-
-        sent_msg = await bot.send_message(
-            chat_id=CHAT_ID,
-            message_thread_id=TOPIC_ID,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode="Markdown"
-        )
-
-        conn = sqlite3.connect("bot_database.db", timeout=30.0)
-        cursor = conn.cursor()
-        cursor.execute("INSERT OR REPLACE INTO active_giveaways (message_id, winners_count, ends_at, status) VALUES (?, ?, ?, 'active')", (sent_msg.message_id, winners_count, ends_at_str))
-        conn.commit()
-        conn.close()
-
-        asyncio.create_task(giveaway_timer_task(bot, sent_msg.message_id, duration_hours, winners_count))
-
+    success = await trigger_start_giveaway_internal(winners_count, duration_hours)
+    if success:
         await message.answer(f"✅ Giveaway successfully started for {duration_hours}h!")
-    except Exception as e:
-        is_drawing_in_progress = False
-        await message.answer(f"⚠️ Error starting giveaway: {e}")
+    else:
+        await message.answer("⚠️ Giveaway drawing or startup process is already in progress! Please wait.")
 
 @dp.message(Command("endgiveaway"))
 async def cmd_end_giveaway(message: types.Message):
