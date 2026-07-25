@@ -81,7 +81,8 @@ async def api_get_user(request):
     tickets = row[0] if row else 1
     return web.json_response({
         "user_id": user_id,
-        "points": tickets,
+        "tickets": tickets,
+        "points": tickets, # Dla pełnej kompatybilności z frontendem
         "referrals_count": ref_count,
         "pool_amount": pool_amount
     })
@@ -102,7 +103,7 @@ async def api_get_leaderboard(request):
     past_winners = cursor.fetchall()
     conn.close()
     
-    leaderboard_data = [{"user_id": r[0], "points": r[1]} for r in rows]
+    leaderboard_data = [{"user_id": r[0], "tickets": r[1], "points": r[1]} for r in rows]
     winners_data = []
     for pw in past_winners:
         winners_data.append({
