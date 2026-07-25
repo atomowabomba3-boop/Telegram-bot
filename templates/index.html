@@ -15,6 +15,7 @@
             --card-bg: #1e1e1e;
             --border-color: #2c2c2c;
             --admin-color: #e53935;
+            --success-color: #4caf50;
         }
 
         body {
@@ -22,10 +23,41 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 16px;
+            padding: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
+        }
+
+        /* Sticky Header - widoczny cały czas przy scrollowaniu */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            width: 100%;
+            background-color: rgba(18, 18, 18, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .header-brand {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .header-tickets {
+            background-color: rgba(36, 129, 204, 0.15);
+            color: var(--button-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            border: 1px solid rgba(36, 129, 204, 0.3);
         }
 
         .container {
@@ -34,7 +66,51 @@
             display: flex;
             flex-direction: column;
             gap: 16px;
-            padding-bottom: 40px;
+            padding: 16px;
+            box-sizing: border-box;
+            padding-bottom: 80px;
+        }
+
+        /* Dolny pasek nawigacji zakładkami */
+        .nav-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            z-index: 1000;
+        }
+
+        .nav-item {
+            background: none;
+            border: none;
+            color: var(--hint-color);
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            width: auto;
+            padding: 0;
+        }
+
+        .nav-item.active {
+            color: var(--button-color);
+        }
+
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .tab-content.active {
+            display: flex;
         }
 
         .card {
@@ -45,40 +121,32 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
 
-        .header-card {
+        /* Pula pieniędzy na środku */
+        .pool-card {
             text-align: center;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2a2010 100%);
+            border: 1px solid #d4af37;
+        }
+
+        .pool-title {
+            font-size: 14px;
+            color: var(--hint-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .pool-amount {
+            font-size: 32px;
+            font-weight: 800;
+            color: #ffd700;
+            margin: 8px 0;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
         }
 
         .title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 12px;
-        }
-
-        .stat-box {
-            background-color: rgba(255, 255, 255, 0.05);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-value {
             font-size: 18px;
-            font-weight: bold;
-            color: var(--button-color);
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: var(--hint-color);
-            margin-top: 4px;
+            font-weight: 700;
+            margin-bottom: 12px;
         }
 
         button {
@@ -98,23 +166,107 @@
             opacity: 0.8;
         }
 
-        .admin-section {
-            display: none;
-            border-color: var(--admin-color);
+        /* Sklep z e-bookami ze zdjęciami */
+        .ebook-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
-        .admin-title {
-            color: var(--admin-color);
+        .ebook-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ebook-img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            background-color: #2c2c2c;
+        }
+
+        .ebook-info {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ebook-name {
             font-weight: bold;
-            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .ebook-desc {
+            font-size: 13px;
+            color: var(--hint-color);
+        }
+
+        /* Clicker sekcja */
+        .clicker-container {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 0;
+        }
+
+        .clicker-btn {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #2481cc 0%, #10436d 100%);
+            border: 4px solid #3ba0ff;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 25px rgba(36, 129, 204, 0.4);
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            transition: transform 0.1s;
+            user-select: none;
         }
 
-        .admin-btn {
-            background-color: var(--admin-color);
-            margin-top: 8px;
+        .clicker-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Czat publiczny */
+        .chat-messages {
+            height: 250px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+        }
+
+        .chat-msg {
+            font-size: 13px;
+            background: rgba(255,255,255,0.05);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .chat-msg span {
+            font-weight: bold;
+            color: var(--button-color);
+        }
+
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
         }
 
         input {
@@ -125,70 +277,138 @@
             background-color: #121212;
             color: var(--text-color);
             box-sizing: border-box;
-            margin-top: 6px;
+        }
+
+        /* Panel Admina */
+        .admin-section {
+            display: none;
+            border-color: var(--admin-color);
+            margin-top: 16px;
+        }
+        .admin-title {
+            color: var(--admin-color);
+            font-weight: bold;
             margin-bottom: 12px;
         }
-
-        .leaderboard-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .leaderboard-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 14px;
-        }
-
-        .leaderboard-item:last-child {
-            border-bottom: none;
-        }
-
-        .status-msg {
-            font-size: 13px;
-            text-align: center;
+        .admin-btn {
+            background-color: var(--admin-color);
             margin-top: 8px;
-            color: var(--hint-color);
         }
     </style>
 </head>
 <body>
 
+    <!-- Sticky Header (Widoczny cały czas) -->
+    <div class="sticky-header">
+        <div class="header-brand">⚡ Undrgroundzone</div>
+        <div class="header-tickets">🎟 <span id="sticky-tickets">-</span> Tickets</div>
+    </div>
+
     <div class="container">
-        <!-- Profil / Statystyki użytkownika -->
-        <div class="card header-card">
-            <div class="title">🔥 Undrgroundzone Hub</div>
-            <div id="username" style="color: var(--hint-color); font-size: 14px;">Loading profile...</div>
+
+        <!-- ZAKŁADKA 1: GIVEAWAY & GŁÓWNA -->
+        <div id="tab-giveaway" class="tab-content active">
             
-            <div class="stats-grid">
-                <div class="stat-box">
-                    <div class="stat-value" id="user-points">-</div>
-                    <div class="stat-label">Your Tickets</div>
+            <!-- Pula pieniędzy na środku ekranu -->
+            <div class="card pool-card">
+                <div class="pool-title">🎁 Current Prize Pool</div>
+                <div class="pool-amount" id="main-pool">$15.00</div>
+                <div style="font-size: 12px; color: var(--hint-color);">Prizes split equally among winners!</div>
+            </div>
+
+            <!-- Profil użytkownika -->
+            <div class="card">
+                <div class="title" id="username">Loading profile...</div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; color: var(--hint-color);">
+                    <span>Referrals: <strong id="user-refs" style="color: var(--text-color)">0</strong></span>
+                    <span>Status: <strong style="color: var(--success-color)">Active Participant</strong></span>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-value" id="user-refs">-</div>
-                    <div class="stat-label">Referrals</div>
+            </div>
+
+            <!-- Tabela Wyników -->
+            <div class="card">
+                <div class="title" style="font-size: 16px; margin-bottom: 12px;">🏆 Top Leaderboard</div>
+                <div id="leaderboard" style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
+                    <div>Loading leaderboard...</div>
                 </div>
             </div>
         </div>
 
-        <!-- Tabela wyników -->
-        <div class="card">
-            <div class="title" style="font-size: 16px; margin-bottom: 12px;">🏆 Top Leaderboard</div>
-            <ul class="leaderboard-list" id="leaderboard">
-                <li class="leaderboard-item"><span>Loading...</span><span>-</span></li>
-            </ul>
+        <!-- ZAKŁADKA 2: SKLEP Z E-BOOKAMI (Ze zdjęciami) -->
+        <div id="tab-store" class="tab-content">
+            <div class="card" style="padding: 0; background: none; border: none; box-shadow: none;">
+                <div class="title">📚 E-book Store & Ticket Boosts</div>
+                <div class="ebook-grid">
+                    
+                    <!-- Tier 1 -->
+                    <div class="ebook-item">
+                        <img src="ebook_green.png.jpg" alt="Ebook Tier 1" class="ebook-img" onerror="this.src='https://via.placeholder.com/400x160?text=Ebook+Tier+1'">
+                        <div class="ebook-info">
+                            <div class="ebook-name">Ebook Tier 1</div>
+                            <div class="ebook-desc">Includes +50 tickets boost & exclusive content.</div>
+                            <div style="font-weight: bold; color: #4caf50; font-size: 16px;">$2.00 USD</div>
+                            <button onclick="buyTier('tier1')">Buy Tier 1</button>
+                        </div>
+                    </div>
+
+                    <!-- Tier 2 -->
+                    <div class="ebook-item">
+                        <img src="ebook_blue.png.jpg" alt="Ebook Tier 2" class="ebook-img" onerror="this.src='https://via.placeholder.com/400x160?text=Ebook+Tier+2'">
+                        <div class="ebook-info">
+                            <div class="ebook-name">Ebook Tier 2</div>
+                            <div class="ebook-desc">Includes +200 tickets boost & advanced guide.</div>
+                            <div style="font-weight: bold; color: #4caf50; font-size: 16px;">$5.00 USD</div>
+                            <button onclick="buyTier('tier2')">Buy Tier 2</button>
+                        </div>
+                    </div>
+
+                    <!-- Tier 3 -->
+                    <div class="ebook-item">
+                        <img src="ebook_purple.png.jpg" alt="Ebook Tier 3" class="ebook-img" onerror="this.src='https://via.placeholder.com/400x160?text=Ebook+Tier+3'">
+                        <div class="ebook-info">
+                            <div class="ebook-name">Ebook Tier 3</div>
+                            <div class="ebook-desc">Includes +500 tickets boost & full system access.</div>
+                            <div style="font-weight: bold; color: #4caf50; font-size: 16px;">$10.00 USD</div>
+                            <button onclick="buyTier('tier3')">Buy Tier 3</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
 
-        <!-- Panel Administratora (widoczny tylko dla ADMIN_IDS) -->
+        <!-- ZAKŁADKA 3: CLICKER (Z Anti-Autoclickerem) -->
+        <div id="tab-clicker" class="tab-content">
+            <div class="card clicker-container">
+                <div class="title">⚡ Lucky Clicker</div>
+                <div style="font-size: 13px; color: var(--hint-color);">Tap the crystal to test your luck! Extremely rare chance to win +1 bonus ticket.</div>
+                
+                <div class="clicker-btn" id="clicker-target" onclick="handleLuckyClick()">TAP!</div>
+                <div id="clicker-status" style="font-size: 14px; font-weight: bold; min-height: 20px; color: var(--success-color);"></div>
+            </div>
+        </div>
+
+        <!-- ZAKŁADKA 4: CZAT SPOŁECZNOŚCI -->
+        <div id="tab-chat" class="tab-content">
+            <div class="card">
+                <div class="title">💬 Community Chat</div>
+                <div class="chat-messages" id="chat-box">
+                    <div class="chat-msg"><span>System:</span> Welcome to Undrgroundzone live chat!</div>
+                    <div class="chat-msg"><span>Admin:</span> Stay active and check your tickets!</div>
+                </div>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="Type a message...">
+                    <button style="width: auto; padding: 10px 16px;" onclick="sendChatMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL ADMINA (Automatycznie ukrywany dla zwykłych użytkowników) -->
         <div class="card admin-section" id="admin-panel">
             <div class="admin-title">⚡ Admin Control Panel</div>
             
             <label style="font-size: 13px;">Add Pool Amount ($):</label>
-            <input type="number" id="admin-pool-input" placeholder="15" value="15">
+            <input type="number" id="admin-pool-input" value="15">
             <button class="admin-btn" onclick="adminAction('add_pool')">Add to Giveaway Pool</button>
 
             <label style="font-size: 13px; margin-top: 12px; display: block;">Target User ID:</label>
@@ -199,9 +419,24 @@
 
             <button class="admin-btn" style="margin-top: 16px;" onclick="adminAction('start')">Start New Giveaway</button>
             <button class="admin-btn" style="background-color: #f57c00;" onclick="adminAction('winners')">Draw Winners Now</button>
-            
-            <div class="status-msg" id="admin-status"></div>
         </div>
+
+    </div>
+
+    <!-- Dolny Pasek Nawigacji -->
+    <div class="nav-bar">
+        <button class="nav-item active" onclick="switchTab('giveaway', this)">
+            <span>🏠</span> Giveaway
+        </button>
+        <button class="nav-item" onclick="switchTab('store', this)">
+            <span>📚</span> E-books
+        </button>
+        <button class="nav-item" onclick="switchTab('clicker', this)">
+            <span>⚡</span> Clicker
+        </button>
+        <button class="nav-item" onclick="switchTab('chat', this)">
+            <span>💬</span> Chat
+        </button>
     </div>
 
     <script>
@@ -209,7 +444,7 @@
         tg.expand();
 
         const user = tg.initDataUnsafe?.user;
-        const userId = user ? user.id : 8998575936; // Fallback do testów lokalnych dla admina
+        const userId = user ? user.id : 8998575936; // Fallback ID dla testów
 
         if (user) {
             document.getElementById('username').innerText = `@${user.username || user.first_name}`;
@@ -217,26 +452,33 @@
             document.getElementById('username').innerText = `User ID: ${userId} (Debug)`;
         }
 
-        // Lista uprzywilejowanych adminów zgodna z backendem
         const ADMIN_IDS = [8998575936];
-
         if (ADMIN_IDS.includes(userId)) {
             document.getElementById('admin-panel').style.display = 'block';
         }
 
-        // Pobieranie danych użytkownika
+        // Przełączanie zakładek
+        function switchTab(tabName, element) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabName).classList.add('active');
+            element.classList.add('active');
+        }
+
+        // Pobieranie danych użytkownika i puli
         async function fetchUserData() {
             try {
                 const response = await fetch(`/api/user/${userId}`);
                 const data = await response.json();
-                document.getElementById('user-points').innerText = data.points ?? 1;
+                const points = data.points ?? 1;
+                document.getElementById('sticky-tickets').innerText = points;
                 document.getElementById('user-refs').innerText = data.referrals_count ?? 0;
             } catch (e) {
                 console.error("Error fetching user data:", e);
             }
         }
 
-        // Pobieranie tabeli wyników
         async function fetchLeaderboard() {
             try {
                 const response = await fetch('/api/leaderboard');
@@ -245,28 +487,101 @@
                 listEl.innerHTML = '';
                 
                 if (data.length === 0) {
-                    listEl.innerHTML = '<li class="leaderboard-item"><span>No records yet</span><span>-</span></li>';
+                    listEl.innerHTML = '<div>No records yet</div>';
                     return;
                 }
 
                 data.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'leaderboard-item';
-                    li.innerHTML = `<span>#${index + 1} ID: ${item.user_id}</span><span>🎟 ${item.points}</span>`;
-                    listEl.appendChild(li);
+                    const div = document.createElement('div');
+                    div.style.cssText = "display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);";
+                    div.innerHTML = `<span>#${index + 1} ID: ${item.user_id}</span><span>🎟 ${item.points}</span>`;
+                    listEl.appendChild(div);
                 });
             } catch (e) {
                 console.error("Error fetching leaderboard:", e);
             }
         }
 
-        // Obsługa akcji administratora
+        // Anti-Autoclicker system
+        let lastClickTime = 0;
+        let clickCountInWindow = 0;
+        let windowStart = Date.now();
+
+        async function handleLuckyClick() {
+            const now = Date.now();
+            
+            // Zabezpieczenie przed skryptami i autoclickerami (limit max 5 kliknięć na sekundę)
+            if (now - windowStart < 1000) {
+                clickCountInWindow++;
+                if (clickCountInWindow > 5) {
+                    document.getElementById('clicker-status').style.color = '#e53935';
+                    document.getElementById('clicker-status').innerText = "⚠️ Autoclicker detected! Slow down.";
+                    return;
+                }
+            } else {
+                windowStart = now;
+                clickCountInWindow = 1;
+            }
+
+            if (now - lastClickTime < 150) {
+                return; // Ograniczenie fizycznej częstotliwości
+            }
+            lastClickTime = now;
+
+            // Bardzo mała szansa na trafienie +1 biletu (np. 1.5% szansy)
+            const roll = Math.random();
+            const statusEl = document.getElementById('clicker-status');
+
+            if (roll < 0.015) {
+                statusEl.style.color = '#4caf50';
+                statusEl.innerText = "🎉 JACKPOT! You won +1 ticket!";
+                
+                // Automatyczne dodanie biletu przez endpoint admina/user systemu
+                try {
+                    await fetch('/api/admin/add_tickets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: userId, target_id: userId, count: 1 })
+                    });
+                    fetchUserData();
+                } catch(e) {
+                    console.error(e);
+                }
+            } else {
+                statusEl.style.color = 'var(--hint-color)';
+                const misses = ["Nothing yet...", "Try again!", "Almost...", "Keep tapping!"];
+                statusEl.innerText = misses[Math.floor(Math.random() * misses.length)];
+            }
+        }
+
+        // Kupowanie tieru (przekierowanie do bota po start payload)
+        function buyTier(tierKey) {
+            const botUsername = "Giveaway63bot"; 
+            window.open(`https://t.me/${botUsername}?start=buy_${tierKey}`, '_blank');
+        }
+
+        // Symulacja czatu publicznego
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            const chatBox = document.getElementById('chat-box');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-msg';
+            msgDiv.innerHTML = `<span>You:</span> ${escapeHtml(text)}`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            input.value = '';
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // Akcje admina
         async function adminAction(actionType) {
-            const statusEl = document.getElementById('admin-status');
-            statusEl.innerText = "Processing...";
-
             let payload = { user_id: userId };
-
             if (actionType === 'add_pool') {
                 payload.text = document.getElementById('admin-pool-input').value;
             } else if (actionType === 'add_tickets') {
@@ -275,24 +590,23 @@
             }
 
             try {
-                const response = await fetch(`/api/admin/${actionType}`, {
+                await fetch(`/api/admin/${actionType}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                const result = await response.json();
-                statusEl.innerText = result.message || "Done!";
                 fetchUserData();
                 fetchLeaderboard();
+                alert("Action completed successfully!");
             } catch (e) {
-                statusEl.innerText = "Error executing action.";
-                console.error(e);
+                alert("Error executing admin action.");
             }
         }
 
-        // Inicjalizacja przy ładowaniu strony
+        // Inicjalizacja cykliczna
         fetchUserData();
         fetchLeaderboard();
+        setInterval(fetchUserData, 15000);
     </script>
 </body>
 </html>
